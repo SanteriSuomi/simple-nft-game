@@ -37,8 +37,8 @@
       ]
     },
     "C:\\Users\\sants\\Desktop\\projects\\nft-game\\contracts\\Game.sol": {
-      "lastModificationDate": 1649027682169,
-      "contentHash": "40c51c93186a028b5cb8d1e6a2c3b6ef",
+      "lastModificationDate": 1649274831742,
+      "contentHash": "497fd9b85cc27eb49e25375afe791c09",
       "sourceName": "contracts/Game.sol",
       "solcConfig": {
         "version": "0.8.13",

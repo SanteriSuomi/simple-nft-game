@@ -108,7 +108,7 @@ contract Game is ERC721 {
                 attributes.name,
                 " -- NFT #: ",
                 Strings.toString(tokenId),
-                '", "description": "Hero NFT that lets you play Monster Slayer!", "image": "',
+                '", "description": "A Hero NFT that lets you play Monster Slayer!", "image": "',
                 attributes.uri,
                 '", "attributes": [ { "trait_type": "Health Points", "value": ',
                 Strings.toString(attributes.hp),
