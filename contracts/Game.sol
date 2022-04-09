@@ -16,12 +16,20 @@ contract Game is ERC721 {
     struct Attributes {
         uint256 index;
         string name;
-        string uri;
+        string imageUri;
         uint256 hp;
         uint256 maxHp;
         uint256 damage;
         uint256 crit;
         uint256 heal;
+    }
+
+    struct Boss {
+        string name;
+        string imageUri;
+        uint256 hp;
+        uint256 maxHp;
+        uint256 damage;
     }
 
     Counters.Counter private _tokenIds;
@@ -31,32 +39,59 @@ contract Game is ERC721 {
     mapping(uint256 => Attributes) public nftAttributes;
     mapping(address => uint256[]) public nftHolders;
 
+    Boss[] public bosses;
+    Boss public currentBoss;
+
     uint256 public mintCost = 0.00 ether;
 
     address private owner;
 
     constructor(
         string[] memory names,
-        string[] memory uris,
+        string[] memory imageUris,
         uint256[] memory hps,
         uint256[] memory damages,
         uint256[] memory crits,
-        uint256[] memory heals
+        uint256[] memory heals,
+        string[] memory bossNames,
+        string[] memory bossImageUris,
+        uint256[] memory bossHps,
+        uint256[] memory bossDamage
     ) ERC721("Heroes", "Hero") {
         require(
-            names.length == uris.length &&
-                uris.length == hps.length &&
+            names.length == imageUris.length &&
+                imageUris.length == hps.length &&
                 hps.length == damages.length &&
                 damages.length == crits.length &&
                 crits.length == heals.length,
-            "One of the given default arrays is odd length"
+            "One of the given NFT default arrays is odd length"
         );
+
+        require(
+            bossNames.length == bossImageUris.length &&
+                bossImageUris.length == bossHps.length &&
+                bossHps.length == bossDamage.length,
+            "One of the given boss default arrays is odd length"
+        );
+
+        for (uint256 i = 0; i < bossNames.length; i++) {
+            bosses.push(
+                Boss({
+                    name: bossNames[i],
+                    imageUri: bossImageUris[i],
+                    hp: bossHps[i],
+                    maxHp: bossDamage[i],
+                    damage: bossDamage[i]
+                })
+            );
+        }
+
         for (uint256 i = 0; i < names.length; i++) {
             defaultAttributes.push(
                 Attributes({
                     index: i,
                     name: names[i],
-                    uri: uris[i],
+                    imageUri: imageUris[i],
                     hp: hps[i],
                     maxHp: hps[i],
                     damage: damages[i],
@@ -73,7 +108,7 @@ contract Game is ERC721 {
         _;
     }
 
-    function mint(uint256 attributesIndex) external payable {
+    function mintHero(uint256 attributesIndex) external payable {
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct");
         }
@@ -82,7 +117,7 @@ contract Game is ERC721 {
         nftAttributes[tokenId] = Attributes({
             index: attribute.index,
             name: attribute.name,
-            uri: attribute.uri,
+            imageUri: attribute.imageUri,
             hp: attribute.hp,
             maxHp: attribute.hp,
             damage: attribute.damage,
@@ -109,7 +144,7 @@ contract Game is ERC721 {
                 " -- NFT #: ",
                 Strings.toString(tokenId),
                 '", "description": "A Hero NFT that lets you play Monster Slayer!", "image": "',
-                attributes.uri,
+                attributes.imageUri,
                 '", "attributes": [ { "trait_type": "Health Points", "value": ',
                 Strings.toString(attributes.hp),
                 ', "max_value":',
