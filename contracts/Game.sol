@@ -6,12 +6,36 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
+import "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+
 import "./libraries/Base64.sol";
 
 import "hardhat/console.sol";
 
-contract Game is ERC721 {
+contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
+
+    VRFCoordinatorV2Interface private coordinator;
+    LinkTokenInterface private linkToken;
+    // Mainnet
+    address private coordinatorAddress =
+        0x271682DEB8C4E0901D1a1550aD2e64D568E69909;
+    // Mainnet
+    address private linkTokenAddress =
+        0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    // 500 gwei gas lane
+    bytes32 private keyHash =
+        0xff8dedfbfa60af186cf3c830acbc32c05aae823045ae5ea7da1e45fbfaba4f92;
+    uint64 private subscriptionId;
+
+    mapping(uint256 => Request) private requests;
+
+    struct Request {
+        address requester;
+        uint256 tokenId;
+    }
 
     struct Attributes {
         uint256 index;
@@ -44,7 +68,7 @@ contract Game is ERC721 {
 
     uint256 public mintCost = 0.00 ether;
 
-    address private owner;
+    address public owner;
 
     constructor(
         string[] memory names,
@@ -57,7 +81,7 @@ contract Game is ERC721 {
         string[] memory bossImageUris,
         uint256[] memory bossHps,
         uint256[] memory bossDamage
-    ) ERC721("Heroes", "Hero") {
+    ) ERC721("Heroes", "Hero") VRFConsumerBaseV2(coordinatorAddress) {
         require(
             names.length == imageUris.length &&
                 imageUris.length == hps.length &&
@@ -100,7 +124,13 @@ contract Game is ERC721 {
                 })
             );
         }
-        _tokenIds.increment();
+        _tokenIds.increment(); // To start token id from 1
+
+        owner = msg.sender;
+
+        coordinator = VRFCoordinatorV2Interface(coordinatorAddress);
+        linkToken = LinkTokenInterface(linkTokenAddress);
+        createSubscription();
     }
 
     modifier onlyOwner() {
@@ -108,25 +138,69 @@ contract Game is ERC721 {
         _;
     }
 
-    function mintHero(uint256 attributesIndex) external payable {
+    function mintHero() external payable {
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct");
         }
         uint256 tokenId = _tokenIds.current();
-        Attributes memory attribute = defaultAttributes[attributesIndex];
-        nftAttributes[tokenId] = Attributes({
-            index: attribute.index,
-            name: attribute.name,
-            imageUri: attribute.imageUri,
-            hp: attribute.hp,
-            maxHp: attribute.hp,
-            damage: attribute.damage,
-            crit: attribute.crit,
-            heal: attribute.heal
-        });
-        nftHolders[msg.sender].push(tokenId);
-        _safeMint(msg.sender, tokenId);
+        requestMint(tokenId);
         _tokenIds.increment();
+    }
+
+    function requestMint(uint256 tokenId) private {
+        requests[
+            coordinator.requestRandomWords(
+                keyHash,
+                subscriptionId,
+                3,
+                100000,
+                1
+            )
+        ] = Request(msg.sender, tokenId);
+    }
+
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
+        internal
+        override
+    {
+        Request memory request = requests[requestId];
+        delete requests[requestId];
+        uint256 randomAttributesIndex = randomWords[0] %
+            defaultAttributes.length;
+        fullfillMint(request.requester, request.tokenId, randomAttributesIndex);
+    }
+
+    function fullfillMint(
+        address requester,
+        uint256 tokenId,
+        uint256 attributesIndex
+    ) private {
+        Attributes memory attributes = defaultAttributes[attributesIndex];
+        nftAttributes[tokenId] = Attributes({
+            index: attributes.index,
+            name: attributes.name,
+            imageUri: attributes.imageUri,
+            hp: attributes.hp,
+            maxHp: attributes.hp,
+            damage: attributes.damage,
+            crit: attributes.crit,
+            heal: attributes.heal
+        });
+        nftHolders[requester].push(tokenId);
+        _safeMint(requester, tokenId);
+    }
+
+    function createSubscription() private {
+        subscriptionId = coordinator.createSubscription();
+        coordinator.addConsumer(subscriptionId, address(this));
+    }
+
+    function fundSubscription(uint256 linkAmount) external onlyOwner {
+        linkToken.transferAndCall(
+            coordinatorAddress,
+            linkAmount,
+            abi.encode(subscriptionId)
+        );
     }
 
     function tokenURI(uint256 tokenId)

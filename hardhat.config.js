@@ -24,5 +24,11 @@ module.exports = {
 			url: "https://speedy-nodes-nyc.moralis.io/9fa2db1294acbd13133c482a/polygon/mumbai",
 			accounts: [process.env.PRIVATE_KEY],
 		},
+		hardhat: {
+			forking: {
+				url: "https://eth-mainnet.alchemyapi.io/v2/KtxGqfD5yrajOEKTD6bOTI07CppFftPA",
+			},
+			// accounts: [process.env.PRIVATE_KEY],
+		},
 	},
 };

@@ -22,20 +22,6 @@ const main = async () => {
 	);
 	await gameContract.deployed();
 	console.log("Contract deployed to:", gameContract.address);
-
-	// Mint 3 heroes
-	let mint = await gameContract.mintHero(0, { gasPrice: 30000000000 });
-	await mint.wait();
-	mint = await gameContract.mintHero(1, { gasPrice: 30000000000 });
-	await mint.wait();
-	mint = await gameContract.mintHero(2, { gasPrice: 30000000000 });
-	await mint.wait();
-
-	let attributes = await gameContract.nftAttributes(1);
-	console.log(attributes);
-
-	let tokenURI = await gameContract.tokenURI(1);
-	console.log(tokenURI);
 };
 
 main()
