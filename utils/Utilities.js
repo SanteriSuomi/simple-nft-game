@@ -9,6 +9,7 @@ const fs = require("fs");
  * @param {*} routerAbiFile File name of the ABI used for router
  * @param {*} tokenAbiFile File name of the ABI used for token
  * @param {*} amountETH Amount of ETH to exchange
+ * @returns Token contract
  * Note: abi file names must end in .txt and be in the same directory as this file
  */
 async function purchaseToken(
@@ -49,6 +50,7 @@ async function purchaseToken(
 
 	let tokenBalance = (await token.balanceOf(owner.address)).toString();
 	console.log("Token balance after purchase: " + tokenBalance);
+	return token;
 }
 
 module.exports = { purchaseToken };

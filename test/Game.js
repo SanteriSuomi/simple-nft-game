@@ -1,5 +1,5 @@
 const { ethers } = require("hardhat");
-const { expect } = require("chai");
+const { expect, assert } = require("chai");
 const { purchaseToken } = require("../utils/Utilities");
 
 describe("Game contract", function () {
@@ -30,7 +30,8 @@ describe("Game contract", function () {
 		);
 		[owner] = await ethers.getSigners();
 
-		await purchaseToken(
+		// Purchase link token
+		const token = await purchaseToken(
 			owner,
 			"0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
 			"0x514910771AF9Ca656af840dff83E8264EcF986CA",
@@ -38,6 +39,8 @@ describe("Game contract", function () {
 			"/link_token_abi.txt",
 			"10"
 		);
+		await token.transfer(game.address, "5000000000000000000");
+		await game.fundSubscription("5000000000000000000"); // Fund subscription with 5 link tokens
 	});
 
 	describe("Deployment", function () {
@@ -49,6 +52,53 @@ describe("Game contract", function () {
 		it("First default attribute should have correct HP", async function () {
 			let attribute = await game.defaultAttributes(0);
 			expect(attribute.hp).to.equal(100);
+		});
+	});
+
+	describe("Minting", function () {
+		it("Should be able to mint", async function () {
+			let eventHappened = false;
+			game.on("Mint", (from, to, amount, event) => {
+				console.log("KEK");
+				eventHappened = true;
+			});
+
+			let mint = await game.mintHero();
+			await mint.wait();
+
+			// expect(mint).to.emit(game, "Mint");
+
+			let timePassed = 0;
+			// async function waitForEvent() {
+			// 	timePassed += 50;
+			// 	if (eventHappened) {
+			// 		if (timePassed >= 60000) {
+			// 			assert.fail(
+			// 				"Event not fired after a set amount of time"
+			// 			);
+			// 		}
+			// 		setTimeout(waitForEvent, 50);
+			// 		return;
+			// 	}
+			// 	let tokenBalance = await game.balanceOf(owner.address);
+			// 	console.log(tokenBalance);
+			// 	expect(tokenBalance).to.equal(1);
+			// }
+			async function waitForEvent() {
+				timePassed += 50;
+				if (timePassed >= 60000) {
+					// 1 minute
+					assert.fail("Event not fired after a set amount of time");
+				}
+				if (eventHappened) {
+					let tokenBalance = await game.balanceOf(owner.address);
+					console.log(tokenBalance);
+					expect(tokenBalance).to.equal(1);
+				} else {
+					setTimeout(waitForEvent, 50);
+				}
+			}
+			await waitForEvent();
 		});
 	});
 });

@@ -17,6 +17,8 @@ import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
+    event Mint(address owner, uint256 tokenId, uint256 attributesIndex);
+
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
     // Mainnet
@@ -163,6 +165,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         internal
         override
     {
+        console.log("fullfill")
         Request memory request = requests[requestId];
         delete requests[requestId];
         uint256 randomAttributesIndex = randomWords[0] %
@@ -188,6 +191,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         });
         nftHolders[requester].push(tokenId);
         _safeMint(requester, tokenId);
+        emit Mint(requester, tokenId, attributesIndex);
     }
 
     function createSubscription() private {
