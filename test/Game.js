@@ -1,5 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const { purchaseToken } = require("../utils/Utilities");
 
 describe("Game contract", function () {
 	let game;
@@ -28,6 +29,15 @@ describe("Game contract", function () {
 			[20, 28] // Boss damages
 		);
 		[owner] = await ethers.getSigners();
+
+		await purchaseToken(
+			owner,
+			"0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+			"0x514910771AF9Ca656af840dff83E8264EcF986CA",
+			"/router_abi.txt",
+			"/link_token_abi.txt",
+			"10"
+		);
 	});
 
 	describe("Deployment", function () {

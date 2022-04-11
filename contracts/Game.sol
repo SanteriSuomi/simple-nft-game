@@ -17,8 +17,8 @@ import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
-    VRFCoordinatorV2Interface private coordinator;
-    LinkTokenInterface private linkToken;
+    VRFCoordinatorV2Interface public coordinator;
+    LinkTokenInterface public linkToken;
     // Mainnet
     address private coordinatorAddress =
         0x271682DEB8C4E0901D1a1550aD2e64D568E69909;
