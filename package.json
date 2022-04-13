@@ -20,6 +20,8 @@
 		"@nomiclabs/hardhat-ethers": "^2.0.5",
 		"@nomiclabs/hardhat-waffle": "^2.0.3",
 		"chai": "^4.3.6",
-		"ethereum-waffle": "^3.4.4"
+		"ethereum-waffle": "^3.4.4",
+		"prettier": "^2.6.2",
+		"prettier-plugin-solidity": "^1.0.0-beta.19"
 	}
 }
