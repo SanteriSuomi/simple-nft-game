@@ -17,7 +17,11 @@ import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
-    event Mint(address owner, uint256 tokenId, uint256 attributesIndex);
+    event Mint(
+        address indexed owner,
+        uint256 indexed tokenId,
+        uint256 indexed attributesIndex
+    );
 
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
@@ -71,6 +75,11 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     uint256 public mintCost = 0.00 ether;
 
     address public owner;
+
+    /**
+     * THIS IS JUST FOR TESTING
+     */
+    uint256 public testRequestId;
 
     constructor(
         string[] memory names,
@@ -140,6 +149,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         _;
     }
 
+    function getDefaultAttributes()
+        external
+        view
+        returns (Attributes[] memory)
+    {
+        return defaultAttributes;
+    }
+
     function mintHero() external payable {
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct");
@@ -150,22 +167,31 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function requestMint(uint256 tokenId) private {
-        requests[
-            coordinator.requestRandomWords(
-                keyHash,
-                subscriptionId,
-                3,
-                100000,
-                1
-            )
-        ] = Request(msg.sender, tokenId);
+        uint256 requestId = coordinator.requestRandomWords(
+            keyHash,
+            subscriptionId,
+            3,
+            100000,
+            1
+        );
+        testRequestId = requestId;
+        requests[requestId] = Request(msg.sender, tokenId);
+    }
+
+    /**
+     *   THIS FUNCTION IS FOR TESTING PURPOSES ONLY
+     */
+    function testFulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) public {
+        fulfillRandomWords(requestId, randomWords);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
         internal
         override
     {
-        console.log("fullfill")
         Request memory request = requests[requestId];
         delete requests[requestId];
         uint256 randomAttributesIndex = randomWords[0] %

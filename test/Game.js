@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect, assert } = require("chai");
-const { purchaseToken } = require("../utils/Utilities");
+const { purchaseToken, randomUint256 } = require("../utils/Utilities");
 
 describe("Game contract", function () {
 	let game;
@@ -57,48 +57,28 @@ describe("Game contract", function () {
 
 	describe("Minting", function () {
 		it("Should be able to mint", async function () {
-			let eventHappened = false;
-			game.on("Mint", (from, to, amount, event) => {
-				console.log("KEK");
-				eventHappened = true;
-			});
-
 			let mint = await game.mintHero();
 			await mint.wait();
 
-			// expect(mint).to.emit(game, "Mint");
+			let testRequestId = await game.testRequestId();
 
-			let timePassed = 0;
-			// async function waitForEvent() {
-			// 	timePassed += 50;
-			// 	if (eventHappened) {
-			// 		if (timePassed >= 60000) {
-			// 			assert.fail(
-			// 				"Event not fired after a set amount of time"
-			// 			);
-			// 		}
-			// 		setTimeout(waitForEvent, 50);
-			// 		return;
-			// 	}
-			// 	let tokenBalance = await game.balanceOf(owner.address);
-			// 	console.log(tokenBalance);
-			// 	expect(tokenBalance).to.equal(1);
-			// }
-			async function waitForEvent() {
-				timePassed += 50;
-				if (timePassed >= 60000) {
-					// 1 minute
-					assert.fail("Event not fired after a set amount of time");
-				}
-				if (eventHappened) {
-					let tokenBalance = await game.balanceOf(owner.address);
-					console.log(tokenBalance);
-					expect(tokenBalance).to.equal(1);
-				} else {
-					setTimeout(waitForEvent, 50);
-				}
-			}
-			await waitForEvent();
+			let testFullfillRequest = await game.testFulfillRandomWords(
+				testRequestId,
+				[randomUint256()]
+			);
+			await testFullfillRequest.wait();
+
+			let mintEvent = game.filters.Mint();
+			let mintEvents = await game.queryFilter(mintEvent);
+			let mintEventArgs = mintEvents[0].args;
+
+			expect(mintEventArgs.owner).to.equal(owner.address);
+			expect(mintEventArgs.tokenId.toNumber()).to.equal(1);
+
+			let defaultAttributes = await game.getDefaultAttributes();
+			expect(mintEventArgs.attributesIndex.toNumber())
+				.to.be.greaterThanOrEqual(0)
+				.and.be.lessThan(defaultAttributes.length);
 		});
 	});
 });

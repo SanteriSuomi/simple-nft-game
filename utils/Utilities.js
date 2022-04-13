@@ -53,4 +53,12 @@ async function purchaseToken(
 	return token;
 }
 
-module.exports = { purchaseToken };
+/**
+ * Generate random BigNumber in the range of 0 and 2^256, more generally known as Uint256 or unsigned integer 256
+ * @returns Ethers BigNumber object with value in the range of 0 and 2^256
+ */
+function randomUint256() {
+	return ethers.BigNumber.from(ethers.utils.randomBytes(32));
+}
+
+module.exports = { purchaseToken, randomUint256 };
