@@ -28,7 +28,6 @@ module.exports = {
 			forking: {
 				url: "https://eth-mainnet.alchemyapi.io/v2/KtxGqfD5yrajOEKTD6bOTI07CppFftPA",
 			},
-			// accounts: [process.env.PRIVATE_KEY],
 		},
 	},
 };

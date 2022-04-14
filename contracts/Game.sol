@@ -35,8 +35,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         0x514910771AF9Ca656af840dff83E8264EcF986CA;
     // 500 gwei gas lane
     bytes32 private keyHash =
-        0xff8dedfbfa60af186cf3c830acbc32c05aae823045ae5ea7da1e45fbfaba4f92;
-    uint64 private subscriptionId; // Created at createSubscription function
+        0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805;
+    uint64 private subscriptionId;
 
     mapping(uint256 => Request) private requests;
 
@@ -159,6 +159,19 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         return defaultAttributes;
     }
 
+    function getSubscriptionDetails()
+        external
+        view
+        returns (
+            uint96,
+            uint64,
+            address,
+            address[] memory
+        )
+    {
+        return coordinator.getSubscription(subscriptionId);
+    }
+
     function mintHero() external payable {
         uint256[] storage tokenIds = nftHolders[msg.sender];
         require(
@@ -178,24 +191,11 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             keyHash,
             subscriptionId,
             3,
-            100000,
+            250000,
             1
         );
         testRequestId = requestId; // FOR TESTING PURPOSES
         requests[requestId] = Request(msg.sender, tokenId);
-        console.log("RequestMint: %s", requestId);
-        (
-            uint96 balance,
-            uint64 reqCount,
-            address subOwner,
-            address[] memory consumers
-        ) = coordinator.getSubscription(subscriptionId);
-        console.log(
-            "Subscription: balance %s, requestCount %s, owner %s",
-            balance,
-            reqCount,
-            subOwner
-        );
     }
 
     /**
@@ -212,7 +212,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         internal
         override
     {
-        console.log("FulfillWords: %s", requestId);
         Request memory request = requests[requestId];
         delete requests[requestId];
         uint256 randomAttributesIndex = randomWords[0] %
@@ -225,6 +224,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 tokenId,
         uint256 attributesIndex
     ) private {
+        console.log("Fulfill Mint");
         Attributes memory attributes = defaultAttributes[attributesIndex];
         nftAttributes[tokenId] = Attributes({
             index: attributes.index,
