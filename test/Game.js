@@ -1,10 +1,11 @@
 const { ethers } = require("hardhat");
-const { expect, assert } = require("chai");
+const { expect } = require("chai");
 const { purchaseToken, randomUint256 } = require("../utils/Utilities");
 
 describe("Game contract", function () {
 	let game;
 	let owner;
+	let defaultAttributes;
 
 	before(async function () {
 		let gameFactory = await ethers.getContractFactory("Game");
@@ -41,6 +42,8 @@ describe("Game contract", function () {
 		);
 		await token.transfer(game.address, "5000000000000000000");
 		await game.fundSubscription("5000000000000000000"); // Fund subscription with 5 link tokens
+
+		defaultAttributes = await game.getDefaultAttributes();
 	});
 
 	describe("Deployment", function () {
@@ -56,9 +59,9 @@ describe("Game contract", function () {
 	});
 
 	describe("Minting", function () {
-		it("Should be able to mint", async function () {
-			let mint = await game.mintHero();
-			await mint.wait();
+		async function mint() {
+			let mintTx = await game.mintHero();
+			await mintTx.wait();
 
 			let testRequestId = await game.testRequestId();
 
@@ -67,18 +70,49 @@ describe("Game contract", function () {
 				[randomUint256()]
 			);
 			await testFullfillRequest.wait();
+		}
 
-			let mintEvent = game.filters.Mint();
-			let mintEvents = await game.queryFilter(mintEvent);
+		it("Should be able to mint with VRF working", async function () {
+			await mint();
+
+			let mintEvents = await game.queryFilter(game.filters.Mint());
 			let mintEventArgs = mintEvents[0].args;
 
 			expect(mintEventArgs.owner).to.equal(owner.address);
 			expect(mintEventArgs.tokenId.toNumber()).to.equal(1);
 
-			let defaultAttributes = await game.getDefaultAttributes();
 			expect(mintEventArgs.attributesIndex.toNumber())
 				.to.be.greaterThanOrEqual(0)
-				.and.be.lessThan(defaultAttributes.length);
+				.and.be.lessThanOrEqual(defaultAttributes.length);
+
+			let nftAttributes = await game.nftAttributes(1);
+			let nftIndex = nftAttributes.index.toNumber();
+			expect(nftAttributes.imageUri).to.equal(
+				defaultAttributes[nftIndex].imageUri
+			);
+			expect(nftAttributes.hp.toNumber()).to.equal(
+				defaultAttributes[nftIndex].hp.toNumber()
+			);
+		});
+
+		it("Should be able to mint again", async function () {
+			await mint();
+
+			let nftAttributes = await game.nftAttributes(2);
+			let nftIndex = nftAttributes.index.toNumber();
+			expect(nftAttributes.imageUri).to.equal(
+				defaultAttributes[nftIndex].imageUri
+			);
+			expect(nftAttributes.hp.toNumber()).to.equal(
+				defaultAttributes[nftIndex].hp.toNumber()
+			);
+		});
+	});
+
+	describe("Attacking", function () {
+		it("Should be able to attack", async function () {
+			let attack = await game.attackBoss();
+			await attack.wait();
 		});
 	});
 });

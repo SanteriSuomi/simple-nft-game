@@ -22,6 +22,14 @@ const main = async () => {
 	);
 	await gameContract.deployed();
 	console.log("Contract deployed to:", gameContract.address);
+
+	let mint = await gameContract.mintHero();
+	await mint.wait();
+	mint = await gameContract.mintHero();
+	await mint.wait();
+
+	await new Promise((r) => setTimeout(r, 10000));
+	console.log(await gameContract.nftAttributes(1));
 };
 
 main()

@@ -23,6 +23,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 indexed attributesIndex
     );
 
+    address public owner;
+
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
     // Mainnet
@@ -34,7 +36,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     // 500 gwei gas lane
     bytes32 private keyHash =
         0xff8dedfbfa60af186cf3c830acbc32c05aae823045ae5ea7da1e45fbfaba4f92;
-    uint64 private subscriptionId;
+    uint64 private subscriptionId; // Created at createSubscription function
 
     mapping(uint256 => Request) private requests;
 
@@ -66,15 +68,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     Attributes[] public defaultAttributes;
 
-    mapping(uint256 => Attributes) public nftAttributes;
     mapping(address => uint256[]) public nftHolders;
+    mapping(uint256 => Attributes) public nftAttributes;
 
     Boss[] public bosses;
     Boss public currentBoss;
 
+    uint256 public maxTokenAmount = 3;
     uint256 public mintCost = 0.00 ether;
-
-    address public owner;
 
     /**
      * THIS IS JUST FOR TESTING
@@ -120,6 +121,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 })
             );
         }
+        currentBoss = bosses[0];
 
         for (uint256 i = 0; i < names.length; i++) {
             defaultAttributes.push(
@@ -158,6 +160,11 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function mintHero() external payable {
+        uint256[] storage tokenIds = nftHolders[msg.sender];
+        require(
+            tokenIds.length < maxTokenAmount,
+            "This address has reached maximum NFT amount"
+        );
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct");
         }
@@ -174,8 +181,21 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             100000,
             1
         );
-        testRequestId = requestId;
+        testRequestId = requestId; // FOR TESTING PURPOSES
         requests[requestId] = Request(msg.sender, tokenId);
+        console.log("RequestMint: %s", requestId);
+        (
+            uint96 balance,
+            uint64 reqCount,
+            address subOwner,
+            address[] memory consumers
+        ) = coordinator.getSubscription(subscriptionId);
+        console.log(
+            "Subscription: balance %s, requestCount %s, owner %s",
+            balance,
+            reqCount,
+            subOwner
+        );
     }
 
     /**
@@ -192,6 +212,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         internal
         override
     {
+        console.log("FulfillWords: %s", requestId);
         Request memory request = requests[requestId];
         delete requests[requestId];
         uint256 randomAttributesIndex = randomWords[0] %
@@ -220,6 +241,40 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         emit Mint(requester, tokenId, attributesIndex);
     }
 
+    function attackBoss() public {
+        uint256[] storage tokenIds = nftHolders[msg.sender];
+        console.log(
+            "Boss %s has %s HP and %s AD",
+            currentBoss.name,
+            currentBoss.hp,
+            currentBoss.damage
+        );
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            Attributes storage hero = nftAttributes[tokenIds[i]];
+            console.log(
+                "Hero %s attacking, has %s HP and %s AD",
+                hero.name,
+                hero.hp,
+                hero.damage
+            );
+
+            // TODO
+            if (currentBoss.hp < hero.damage) {
+                currentBoss.hp = 0;
+            } else {
+                // Remove current boss and get a new one through VRF, emit event
+                currentBoss.hp = currentBoss.hp - hero.damage;
+            }
+
+            if (hero.hp < currentBoss.damage) {
+                hero.hp = 0;
+            } else {
+                // Destroy this hero and remove it from the player, emit event
+                hero.hp = hero.hp - currentBoss.damage;
+            }
+        }
+    }
+
     function createSubscription() private {
         subscriptionId = coordinator.createSubscription();
         coordinator.addConsumer(subscriptionId, address(this));
@@ -240,7 +295,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         returns (string memory)
     {
         Attributes memory attributes = nftAttributes[tokenId];
-
         string memory json = Base64.encode(
             abi.encodePacked(
                 '{"name": "',
@@ -268,19 +322,18 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 "} ]}"
             )
         );
-
-        string memory output = string(
-            abi.encodePacked("data:application/json;base64,", json)
-        );
-
-        return output;
+        return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
-    function setOwner(address _owner) external onlyOwner {
-        owner = _owner;
+    function setOwner(address _address) external onlyOwner {
+        owner = _address;
     }
 
-    function setMintCost(uint256 _mintCost) external onlyOwner {
-        mintCost = _mintCost;
+    function setMaxTokenAmount(uint256 amount) external onlyOwner {
+        maxTokenAmount = amount;
+    }
+
+    function setMintCost(uint256 cost) external onlyOwner {
+        mintCost = cost;
     }
 }
