@@ -5,12 +5,12 @@ const { randomUint256, initializeGameContract } = require("../utils/Utilities");
 describe("Game contract", function () {
 	let gameContract;
 	let owner;
-	let defaultAttributes;
+	let defaultHeroes; // Default hero attributes array
 
 	before(async function () {
 		gameContract = await initializeGameContract(false);
 		[owner] = await ethers.getSigners(); // First account
-		defaultAttributes = await gameContract.getDefaultAttributes();
+		defaultHeroes = await gameContract.getDefaultHeroes();
 	});
 
 	describe("Deployment", function () {
@@ -20,8 +20,7 @@ describe("Game contract", function () {
 		});
 
 		it("First default attribute should have correct HP", async function () {
-			const attribute = await gameContract.defaultAttributes(0);
-			expect(attribute.hp).to.equal(100);
+			expect(defaultHeroes[0].hp).to.equal(100);
 		});
 	});
 
@@ -50,30 +49,26 @@ describe("Game contract", function () {
 			expect(mintEventArgs.owner).to.equal(owner.address);
 			expect(mintEventArgs.tokenId.toNumber()).to.equal(1);
 
-			expect(mintEventArgs.attributesIndex.toNumber())
+			expect(mintEventArgs.heroIndex.toNumber())
 				.to.be.greaterThanOrEqual(0)
-				.and.be.lessThanOrEqual(defaultAttributes.length);
+				.and.be.lessThanOrEqual(defaultHeroes.length);
 
-			const nftAttributes = await gameContract.nftAttributes(1);
-			const nftIndex = nftAttributes.index.toNumber();
-			expect(nftAttributes.imageUri).to.equal(
-				defaultAttributes[nftIndex].imageUri
-			);
-			expect(nftAttributes.hp.toNumber()).to.equal(
-				defaultAttributes[nftIndex].hp.toNumber()
+			const nftHero = await gameContract.nftHero(1);
+			const nftIndex = nftHero.index.toNumber();
+			expect(nftHero.imageUri).to.equal(defaultHeroes[nftIndex].imageUri);
+			expect(nftHero.hp.toNumber()).to.equal(
+				defaultHeroes[nftIndex].hp.toNumber()
 			);
 		});
 
 		it("Should be able to mint again", async function () {
 			await mintHero();
 
-			const nftAttributes = await gameContract.nftAttributes(2);
-			const nftIndex = nftAttributes.index.toNumber();
-			expect(nftAttributes.imageUri).to.equal(
-				defaultAttributes[nftIndex].imageUri
-			);
-			expect(nftAttributes.hp.toNumber()).to.equal(
-				defaultAttributes[nftIndex].hp.toNumber()
+			const nftHero = await gameContract.nftHero(2);
+			const nftIndex = nftHero.index.toNumber();
+			expect(nftHero.imageUri).to.equal(defaultHeroes[nftIndex].imageUri);
+			expect(nftHero.hp.toNumber()).to.equal(
+				defaultHeroes[nftIndex].hp.toNumber()
 			);
 		});
 	});

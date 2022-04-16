@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 const fs = require("fs");
 
 /**
@@ -57,6 +57,20 @@ function randomUint256() {
 async function initializeGameContract(printAddress, networkName) {
 	const [owner] = await ethers.getSigners(); // First account
 	const gameFactory = await ethers.getContractFactory("Game");
+
+	const coordinatorAddress =
+		networkName == "testnet"
+			? "0x6168499c0cFfCaCD319c818142124B7A15E857ab" // Testnet
+			: "0x271682DEB8C4E0901D1a1550aD2e64D568E69909"; // Mainnet (local fork)
+	const linkTokenAddress =
+		networkName == "testnet"
+			? "0x01BE23585060835E02B77ef475b0Cc51aA1e0709" // Testnet
+			: "0x514910771AF9Ca656af840dff83E8264EcF986CA"; // Mainnet (local fork)
+	const keyHash =
+		networkName == "testnet"
+			? "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc" // Testnet
+			: "0xff8dedfbfa60af186cf3c830acbc32c05aae823045ae5ea7da1e45fbfaba4f92"; // Mainnet (local fork), 500 gwei
+
 	const gameContract = await gameFactory.deploy(
 		["Warrior", "Thief", "Druid"], // Hero names
 		[
@@ -68,7 +82,6 @@ async function initializeGameContract(printAddress, networkName) {
 		[10, 6, 2], // Damages
 		[20, 50, 10], // Crit chances
 		[2, 2, 6], // Heal
-
 		["Treant", "Skeleton Lord"], // Boss names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
@@ -78,6 +91,13 @@ async function initializeGameContract(printAddress, networkName) {
 		[20, 28] // Boss damages
 	);
 	await gameContract.deployed();
+	const initializeTx = await gameContract.initializeVRF(
+		coordinatorAddress,
+		linkTokenAddress,
+		keyHash
+	);
+	initializeTx.wait();
+
 	if (printAddress) {
 		console.log("Contract deployed to:", gameContract.address);
 	}
@@ -88,9 +108,7 @@ async function initializeGameContract(printAddress, networkName) {
 		const token = await purchaseToken(
 			owner,
 			"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Uniswap router address is the same for all networks
-			networkName == "testnet"
-				? "	0x01BE23585060835E02B77ef475b0Cc51aA1e0709" // Testnet
-				: "0x514910771AF9Ca656af840dff83E8264EcF986CA", // Mainnet (local forked)
+			linkTokenAddress,
 			"/router_abi.txt",
 			"/link_token_abi.txt",
 			"10"
