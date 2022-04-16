@@ -15,37 +15,37 @@ describe("Game contract", function () {
 
 	describe("Deployment", function () {
 		it("Should assign correct owner", async function () {
-			let gameOwner = await gameContract.owner();
+			const gameOwner = await gameContract.owner();
 			expect(gameOwner).to.equal(owner.address);
 		});
 
 		it("First default attribute should have correct HP", async function () {
-			let attribute = await gameContract.defaultAttributes(0);
+			const attribute = await gameContract.defaultAttributes(0);
 			expect(attribute.hp).to.equal(100);
 		});
 	});
 
 	describe("Minting", function () {
-		async function mint() {
-			let mintTx = await gameContract.mintHero();
+		async function mintHero() {
+			const mintTx = await gameContract.mintHero();
 			await mintTx.wait();
 
-			let testRequestId = await gameContract.testRequestId();
+			const testRequestId = await gameContract.testRequestId();
 
-			let testFullfillRequest = await gameContract.testFulfillRandomWords(
-				testRequestId,
-				[randomUint256()]
-			);
+			const testFullfillRequest =
+				await gameContract.testFulfillRandomWords(testRequestId, [
+					randomUint256(),
+				]);
 			await testFullfillRequest.wait();
 		}
 
 		it("Should be able to mint with VRF working", async function () {
-			await mint();
+			await mintHero();
 
-			let mintEvents = await gameContract.queryFilter(
+			const mintEvents = await gameContract.queryFilter(
 				gameContract.filters.Mint()
 			);
-			let mintEventArgs = mintEvents[0].args;
+			const mintEventArgs = mintEvents[0].args;
 
 			expect(mintEventArgs.owner).to.equal(owner.address);
 			expect(mintEventArgs.tokenId.toNumber()).to.equal(1);
@@ -54,8 +54,8 @@ describe("Game contract", function () {
 				.to.be.greaterThanOrEqual(0)
 				.and.be.lessThanOrEqual(defaultAttributes.length);
 
-			let nftAttributes = await gameContract.nftAttributes(1);
-			let nftIndex = nftAttributes.index.toNumber();
+			const nftAttributes = await gameContract.nftAttributes(1);
+			const nftIndex = nftAttributes.index.toNumber();
 			expect(nftAttributes.imageUri).to.equal(
 				defaultAttributes[nftIndex].imageUri
 			);
@@ -65,10 +65,10 @@ describe("Game contract", function () {
 		});
 
 		it("Should be able to mint again", async function () {
-			await mint();
+			await mintHero();
 
-			let nftAttributes = await gameContract.nftAttributes(2);
-			let nftIndex = nftAttributes.index.toNumber();
+			const nftAttributes = await gameContract.nftAttributes(2);
+			const nftIndex = nftAttributes.index.toNumber();
 			expect(nftAttributes.imageUri).to.equal(
 				defaultAttributes[nftIndex].imageUri
 			);
@@ -80,7 +80,7 @@ describe("Game contract", function () {
 
 	describe("Attacking", function () {
 		it("Should be able to attack", async function () {
-			let attack = await gameContract.attackBoss();
+			const attack = await gameContract.attackBoss();
 			await attack.wait();
 		});
 	});

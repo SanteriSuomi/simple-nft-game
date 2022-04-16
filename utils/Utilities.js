@@ -3,6 +3,7 @@ const fs = require("fs");
 
 /**
  * Exchange ETH to token.
+ * @param {*} networkName Current network name from hardhat config
  * @param {*} owner Ethers signer object of the address used
  * @param {*} routerAddress Address of uniswap-compatible router
  * @param {*} tokenAddress Address of EIP-20 token
@@ -42,15 +43,7 @@ async function purchaseToken(
 	await buyTx.wait();
 
 	const tokenAbiBuffer = fs.readFileSync(__dirname + tokenAbiFile);
-	const token = new ethers.Contract(
-		tokenAddress,
-		tokenAbiBuffer.toString(),
-		owner
-	);
-
-	let tokenBalance = (await token.balanceOf(owner.address)).toString();
-	// console.log("Token balance after purchase: " + tokenBalance);
-	return token;
+	return new ethers.Contract(tokenAddress, tokenAbiBuffer.toString(), owner);
 }
 
 /**
@@ -61,10 +54,10 @@ function randomUint256() {
 	return ethers.BigNumber.from(ethers.utils.randomBytes(32));
 }
 
-async function initializeGameContract(printAddress) {
-	let [owner] = await ethers.getSigners(); // First account
-	let gameFactory = await ethers.getContractFactory("Game");
-	let gameContract = await gameFactory.deploy(
+async function initializeGameContract(printAddress, networkName) {
+	const [owner] = await ethers.getSigners(); // First account
+	const gameFactory = await ethers.getContractFactory("Game");
+	const gameContract = await gameFactory.deploy(
 		["Warrior", "Thief", "Druid"], // Hero names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmeYsWSHN8HFXYLbJx77jDWbn9mWDqjvFNUPEEjoz7vWFh/Warrior.gif",
@@ -89,17 +82,22 @@ async function initializeGameContract(printAddress) {
 		console.log("Contract deployed to:", gameContract.address);
 	}
 
-	// Purchase link token from Uniswap
-	const token = await purchaseToken(
-		owner,
-		"0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
-		"0x514910771AF9Ca656af840dff83E8264EcF986CA",
-		"/router_abi.txt",
-		"/link_token_abi.txt",
-		"10"
-	);
-	await token.transfer(gameContract.address, "5000000000000000000");
-	await gameContract.fundSubscription("5000000000000000000"); // Fund chainlink subscription with 5 link tokens
+	// Only auto-purchase link token in default forked local chain or testnet
+	if (networkName == "testnet" || networkName == "hardhat") {
+		// Purchase link token from Uniswap
+		const token = await purchaseToken(
+			owner,
+			"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Uniswap router address is the same for all networks
+			networkName == "testnet"
+				? "	0x01BE23585060835E02B77ef475b0Cc51aA1e0709" // Testnet
+				: "0x514910771AF9Ca656af840dff83E8264EcF986CA", // Mainnet (local forked)
+			"/router_abi.txt",
+			"/link_token_abi.txt",
+			"10"
+		);
+		await token.transfer(gameContract.address, "5000000000000000000");
+		await gameContract.fundSubscription("5000000000000000000"); // Fund chainlink subscription with 5 link tokens
+	}
 	return gameContract;
 }
 

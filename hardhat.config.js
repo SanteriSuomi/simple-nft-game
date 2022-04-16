@@ -20,14 +20,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
 	solidity: "0.8.13",
 	networks: {
-		testnet: {
-			url: "https://speedy-nodes-nyc.moralis.io/9fa2db1294acbd13133c482a/polygon/mumbai",
-			accounts: [process.env.PRIVATE_KEY],
-		},
 		hardhat: {
+			// This is used by default
 			forking: {
 				url: "https://eth-mainnet.alchemyapi.io/v2/KtxGqfD5yrajOEKTD6bOTI07CppFftPA",
 			},
+		},
+		testnet: {
+			url: "https://speedy-nodes-nyc.moralis.io/9fa2db1294acbd13133c482a/eth/rinkeby",
+			accounts: [process.env.PRIVATE_KEY],
 		},
 	},
 };
