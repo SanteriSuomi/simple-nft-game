@@ -1,13 +1,7 @@
 const { initializeGameContract } = require("../utils/Utilities");
 
 const main = async () => {
-	const networkName = hre.network.name;
-	const gameContract = await initializeGameContract(true, networkName);
-
-	if (networkName == "testnet" || networkName == "hardhat") {
-		const mint = await gameContract.mintHero();
-		await mint.wait();
-	}
+	await initializeGameContract(true, hre.network.name, "0.01");
 };
 
 main()

@@ -298,10 +298,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         createSubscription();
     }
 
-    function fundSubscription(uint256 linkAmount) external onlyOwner {
+    function fundSubscription() external onlyOwner {
         linkToken.transferAndCall(
             coordinatorAddress,
-            linkAmount,
+            linkToken.balanceOf(address(this)),
             abi.encode(subscriptionId)
         );
     }
