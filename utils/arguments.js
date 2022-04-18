@@ -1,3 +1,8 @@
+const coordinatorAddress =
+	hre.network.name == "testnet"
+		? "0x6168499c0cFfCaCD319c818142124B7A15E857ab" // Testnet
+		: "0x271682DEB8C4E0901D1a1550aD2e64D568E69909"; // Mainnet (local fork)
+
 module.exports = [
 	["Warrior", "Thief", "Druid"], // Hero names
 	[
@@ -16,4 +21,5 @@ module.exports = [
 	],
 	[1000, 600], // Boss HPs
 	[20, 28], // Boss damages
+	coordinatorAddress,
 ];

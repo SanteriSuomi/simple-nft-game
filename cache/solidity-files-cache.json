@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\sants\\Desktop\\projects\\nft-game\\contracts\\Game.sol": {
-      "lastModificationDate": 1650314259409,
-      "contentHash": "ee814a3582f1c262b620dc429092de00",
+      "lastModificationDate": 1650317033134,
+      "contentHash": "83709e0b97521de78c1d1465ac888804",
       "sourceName": "contracts/Game.sol",
       "solcConfig": {
         "version": "0.8.13",

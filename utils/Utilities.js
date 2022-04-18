@@ -17,6 +17,11 @@ async function initializeGameContract(
 	const [owner] = await ethers.getSigners(); // First account
 	const gameFactory = await ethers.getContractFactory("Game");
 
+	const coordinatorAddress =
+		networkName == "testnet"
+			? "0x6168499c0cFfCaCD319c818142124B7A15E857ab" // Testnet
+			: "0x271682DEB8C4E0901D1a1550aD2e64D568E69909"; // Mainnet (local fork)
+
 	const gameContract = await gameFactory.deploy(
 		["Warrior", "Thief", "Druid"], // Hero names
 		[
@@ -34,7 +39,8 @@ async function initializeGameContract(
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Slime.gif",
 		],
 		[1000, 600], // Boss HPs
-		[20, 28] // Boss damages
+		[20, 28], // Boss damages
+		coordinatorAddress
 	);
 	await gameContract.deployed();
 
@@ -42,10 +48,6 @@ async function initializeGameContract(
 		console.log("Contract deployed to:", gameContract.address);
 	}
 
-	const coordinatorAddress =
-		networkName == "testnet"
-			? "0x6168499c0cFfCaCD319c818142124B7A15E857ab" // Testnet
-			: "0x271682DEB8C4E0901D1a1550aD2e64D568E69909"; // Mainnet (local fork)
 	const linkTokenAddress =
 		networkName == "testnet"
 			? "0x01BE23585060835E02B77ef475b0Cc51aA1e0709" // Testnet
@@ -53,10 +55,9 @@ async function initializeGameContract(
 	const keyHash =
 		networkName == "testnet"
 			? "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc" // Testnet
-			: "0xff8dedfbfa60af186cf3c830acbc32c05aae823045ae5ea7da1e45fbfaba4f92"; // Mainnet (local fork), 500 gwei
+			: "0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805"; // Mainnet (local fork), 1000 gwei
 
 	const initializeVRFT = await gameContract.initializeVRF(
-		coordinatorAddress,
 		linkTokenAddress,
 		keyHash
 	);
@@ -75,9 +76,7 @@ async function initializeGameContract(
 			linkBuyEtherAmount
 		);
 		const tokenBalance = await token.balanceOf(owner.address);
-		console.log(tokenBalance);
 		await token.transfer(gameContract.address, tokenBalance);
-		console.log(await token.balanceOf(gameContract.address));
 		await gameContract.fundSubscription({ gasLimit: 150000 }); // Fund chainlink subscription with purchased link token
 	}
 	return gameContract;

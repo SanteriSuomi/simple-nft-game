@@ -27,13 +27,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
-    // Mainnet
     address private coordinatorAddress;
-    // Mainnet
     address private linkTokenAddress;
-    // 500 gwei gas lane
-    bytes32 private keyHash =
-        0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805;
+    bytes32 private keyHash;
     uint64 private subscriptionId;
 
     mapping(uint256 => Request) private requests;
@@ -89,8 +85,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         string[] memory bossNames,
         string[] memory bossImageUris,
         uint256[] memory bossHps,
-        uint256[] memory bossDamage
-    ) ERC721("Heroes", "Hero") VRFConsumerBaseV2(coordinatorAddress) {
+        uint256[] memory bossDamage,
+        address _coordinatorAddress
+    ) ERC721("Heroes", "Hero") VRFConsumerBaseV2(_coordinatorAddress) {
         require(
             names.length == imageUris.length &&
                 imageUris.length == hps.length &&
@@ -136,6 +133,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         _tokenIds.increment(); // To start token id from 1
 
         owner = msg.sender;
+        coordinatorAddress = _coordinatorAddress;
     }
 
     modifier onlyOwner() {
@@ -162,7 +160,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             keyHash,
             subscriptionId,
             3,
-            250000,
+            1000000,
             1
         );
         testRequestId = requestId; // FOR TESTING PURPOSES
@@ -285,12 +283,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     /**
         This should be called right after constructor,
      */
-    function initializeVRF(
-        address _coordinatorAddress,
-        address _linkTokenAddress,
-        bytes32 _keyHash
-    ) external onlyOwner {
-        coordinatorAddress = _coordinatorAddress;
+    function initializeVRF(address _linkTokenAddress, bytes32 _keyHash)
+        external
+        onlyOwner
+    {
         linkTokenAddress = _linkTokenAddress;
         keyHash = _keyHash;
         coordinator = VRFCoordinatorV2Interface(coordinatorAddress);
