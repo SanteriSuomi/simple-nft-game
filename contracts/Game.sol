@@ -82,7 +82,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         ERC721("Heroes", "Hero")
         VRFConsumerBaseV2(_coordinatorAddress)
     {
-        _tokenIds.increment();
         owner = msg.sender;
         coordinatorAddress = _coordinatorAddress;
     }
@@ -344,7 +343,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         return coordinator.getSubscription(subscriptionId);
     }
 
-    function getUserNFTs() external view returns (Hero[] memory) {
+    function getUserHeroes() external view returns (Hero[] memory) {
         uint256[] storage userTokenIds = nftHolders[msg.sender];
         Hero[] memory userHeroes;
         uint256 length = userTokenIds.length;
@@ -355,7 +354,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function totalSupply() external view returns (uint256) {
-        return _tokenIds.current() - 1;
+        return _tokenIds.current() + 1;
     }
 
     function setOwner(address _address) external onlyOwner {

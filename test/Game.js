@@ -51,13 +51,13 @@ describe("Game contract", function () {
 			const mintEventArgs = mintEvents[0].args;
 
 			expect(mintEventArgs.owner).to.equal(owner.address);
-			expect(mintEventArgs.tokenId.toNumber()).to.equal(1);
+			expect(mintEventArgs.tokenId.toNumber()).to.equal(0);
 
 			expect(mintEventArgs.heroIndex.toNumber())
 				.to.be.greaterThanOrEqual(0)
 				.and.be.lessThanOrEqual(defaultHeroes.length);
 
-			const nftHero = await gameContract.nftHero(1);
+			const nftHero = await gameContract.nftHero(0);
 			const nftIndex = nftHero.index.toNumber();
 			expect(nftHero.imageUri).to.equal(defaultHeroes[nftIndex].imageUri);
 			expect(nftHero.hp.toNumber()).to.equal(
@@ -68,7 +68,7 @@ describe("Game contract", function () {
 		it("Should be able to mint again", async function () {
 			await mintHero();
 
-			const nftHero = await gameContract.nftHero(2);
+			const nftHero = await gameContract.nftHero(1);
 			const nftIndex = nftHero.index.toNumber();
 			expect(nftHero.imageUri).to.equal(defaultHeroes[nftIndex].imageUri);
 			expect(nftHero.hp.toNumber()).to.equal(
@@ -78,7 +78,7 @@ describe("Game contract", function () {
 
 		it("Total supply is correct", async function () {
 			const totalSupply = await gameContract.totalSupply();
-			expect(totalSupply.toNumber()).to.equal(2);
+			expect(totalSupply.toNumber()).to.equal(3);
 		});
 
 		it("Metadata of minted NFT is correct", async function () {
