@@ -1,5 +1,6 @@
 const { ethers } = require("hardhat");
 const fs = require("fs");
+const args = require("./arguments");
 
 /**
  * Generate random BigNumber in the range of 0 and 2^256, more generally known as Uint256 or unsigned integer 256
@@ -15,14 +16,12 @@ async function initializeGameContract(
 	linkBuyEtherAmount
 ) {
 	const [owner] = await ethers.getSigners(); // First account
+
 	const gameFactory = await ethers.getContractFactory("Game");
+	const gameContract = await gameFactory.deploy(args);
+	await gameContract.deployed();
 
-	const coordinatorAddress =
-		networkName == "testnet"
-			? "0x6168499c0cFfCaCD319c818142124B7A15E857ab" // Testnet
-			: "0x271682DEB8C4E0901D1a1550aD2e64D568E69909"; // Mainnet (local fork)
-
-	const gameContract = await gameFactory.deploy(
+	let tx = await gameContract.setHeroes(
 		["Warrior", "Thief", "Druid"], // Hero names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmeYsWSHN8HFXYLbJx77jDWbn9mWDqjvFNUPEEjoz7vWFh/Warrior.gif",
@@ -32,21 +31,17 @@ async function initializeGameContract(
 		[100, 60, 40], // HPs
 		[10, 6, 2], // Damages
 		[20, 50, 10], // Crit chances
-		[2, 2, 6], // Heal
+		[2, 2, 6] // Heal
+	);
+	tx = await gameContract.setBosses(
 		["Treant", "Skeleton Lord"], // Boss names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Slime.gif",
 		],
 		[1000, 600], // Boss HPs
-		[20, 28], // Boss damages
-		coordinatorAddress
+		[20, 28] // Boss damages
 	);
-	await gameContract.deployed();
-
-	if (printAddress) {
-		console.log("Contract deployed to:", gameContract.address);
-	}
 
 	const linkTokenAddress =
 		networkName == "testnet"
@@ -56,12 +51,12 @@ async function initializeGameContract(
 		networkName == "testnet"
 			? "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc" // Testnet
 			: "0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805"; // Mainnet (local fork), 1000 gwei
+	tx = await gameContract.setVRF(linkTokenAddress, keyHash);
+	await gameContract.setInitialized();
 
-	const initializeVRFT = await gameContract.initializeVRF(
-		linkTokenAddress,
-		keyHash
-	);
-	initializeVRFT.wait();
+	if (printAddress) {
+		console.log("Contract deployed to:", gameContract.address);
+	}
 
 	// Only auto-purchase link token in default forked local chain or testnet
 	if (networkName == "testnet" || networkName == "hardhat") {

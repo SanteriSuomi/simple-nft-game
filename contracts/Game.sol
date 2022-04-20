@@ -40,7 +40,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     struct Hero {
-        uint256 index;
+        uint256 index; // Default heroes index for this NFT
+        uint256 birthDate;
         string name;
         string imageUri;
         uint256 hp;
@@ -70,24 +71,30 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     uint256 public maxTokenAmount = 3;
     uint256 public mintCost = 0.00 ether;
 
+    bool private initialized;
+
     /**
      * THIS IS JUST FOR TESTING
      */
     uint256 public testRequestId;
 
-    constructor(
+    constructor(address _coordinatorAddress)
+        ERC721("Heroes", "Hero")
+        VRFConsumerBaseV2(_coordinatorAddress)
+    {
+        _tokenIds.increment();
+        owner = msg.sender;
+        coordinatorAddress = _coordinatorAddress;
+    }
+
+    function setHeroes(
         string[] memory names,
         string[] memory imageUris,
         uint256[] memory hps,
         uint256[] memory damages,
         uint256[] memory crits,
-        uint256[] memory heals,
-        string[] memory bossNames,
-        string[] memory bossImageUris,
-        uint256[] memory bossHps,
-        uint256[] memory bossDamage,
-        address _coordinatorAddress
-    ) ERC721("Heroes", "Hero") VRFConsumerBaseV2(_coordinatorAddress) {
+        uint256[] memory heals
+    ) external onlyOwner checkInitialized {
         require(
             names.length == imageUris.length &&
                 imageUris.length == hps.length &&
@@ -96,13 +103,35 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 crits.length == heals.length,
             "One of the given NFT default arrays is odd length"
         );
+        for (uint256 i = 0; i < names.length; i++) {
+            defaultHeroes.push(
+                Hero({
+                    birthDate: block.timestamp,
+                    index: i,
+                    name: names[i],
+                    imageUri: imageUris[i],
+                    hp: hps[i],
+                    maxHp: hps[i],
+                    damage: damages[i],
+                    crit: crits[i],
+                    heal: heals[i]
+                })
+            );
+        }
+    }
+
+    function setBosses(
+        string[] memory bossNames,
+        string[] memory bossImageUris,
+        uint256[] memory bossHps,
+        uint256[] memory bossDamage
+    ) external onlyOwner checkInitialized {
         require(
             bossNames.length == bossImageUris.length &&
                 bossImageUris.length == bossHps.length &&
                 bossHps.length == bossDamage.length,
             "One of the given boss default arrays is odd length"
         );
-
         for (uint256 i = 0; i < bossNames.length; i++) {
             bosses.push(
                 Boss({
@@ -115,29 +144,36 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             );
         }
         currentBoss = bosses[0];
+    }
 
-        for (uint256 i = 0; i < names.length; i++) {
-            defaultHeroes.push(
-                Hero({
-                    index: i,
-                    name: names[i],
-                    imageUri: imageUris[i],
-                    hp: hps[i],
-                    maxHp: hps[i],
-                    damage: damages[i],
-                    crit: crits[i],
-                    heal: heals[i]
-                })
-            );
-        }
-        _tokenIds.increment(); // To start token id from 1
+    function setVRF(address _linkTokenAddress, bytes32 _keyHash)
+        external
+        onlyOwner
+        checkInitialized
+    {
+        linkTokenAddress = _linkTokenAddress;
+        keyHash = _keyHash;
+        coordinator = VRFCoordinatorV2Interface(coordinatorAddress);
+        linkToken = LinkTokenInterface(linkTokenAddress);
+        createSubscription();
+    }
 
-        owner = msg.sender;
-        coordinatorAddress = _coordinatorAddress;
+    function createSubscription() private {
+        subscriptionId = coordinator.createSubscription();
+        coordinator.addConsumer(subscriptionId, address(this));
+    }
+
+    function setInitialized() external onlyOwner checkInitialized {
+        initialized = true;
     }
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Caller must be owner");
+        _;
+    }
+
+    modifier checkInitialized() {
+        require(!initialized, "Contract has already been initialized");
         _;
     }
 
@@ -195,6 +231,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         console.log("Fulfill Mint");
         Hero memory hero = defaultHeroes[heroIndex];
         nftHero[tokenId] = Hero({
+            birthDate: block.timestamp,
             index: hero.index,
             name: hero.name,
             imageUri: hero.imageUri,
@@ -228,17 +265,17 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
             // TODO destroy hero / boss when dead
             if (currentBoss.hp < hero.damage) {
+                // TODO Remove current boss and get a new one through VRF, emit event
                 currentBoss.hp = 0;
             } else {
-                // Remove current boss and get a new one through VRF, emit event
-                currentBoss.hp = currentBoss.hp - hero.damage;
+                currentBoss.hp -= hero.damage;
             }
 
             if (hero.hp < currentBoss.damage) {
+                // TODO Destroy this hero and remove it from the player, emit event
                 hero.hp = 0;
             } else {
-                // Destroy this hero and remove it from the player, emit event
-                hero.hp = hero.hp - currentBoss.damage;
+                hero.hp -= currentBoss.damage;
             }
         }
     }
@@ -258,7 +295,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 Strings.toString(tokenId),
                 '", "description": "A Hero NFT that lets you play Monster Slayer!", "image": "',
                 hero.imageUri,
-                '", "Hero": [ { "trait_type": "Health Points", "value": ',
+                '", "attributes": [ { "trait_type": "Birth Date", "value": ',
+                Strings.toString(hero.birthDate),
+                '}, { "display_type": "date", "trait_type": "Health Points", "value": ',
                 Strings.toString(hero.hp),
                 ', "max_value":',
                 Strings.toString(hero.maxHp),
@@ -278,20 +317,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             )
         );
         return string(abi.encodePacked("data:application/json;base64,", json));
-    }
-
-    /**
-        This should be called right after constructor,
-     */
-    function initializeVRF(address _linkTokenAddress, bytes32 _keyHash)
-        external
-        onlyOwner
-    {
-        linkTokenAddress = _linkTokenAddress;
-        keyHash = _keyHash;
-        coordinator = VRFCoordinatorV2Interface(coordinatorAddress);
-        linkToken = LinkTokenInterface(linkTokenAddress);
-        createSubscription();
     }
 
     function fundSubscription() external onlyOwner {
@@ -319,6 +344,20 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         return coordinator.getSubscription(subscriptionId);
     }
 
+    function getUserNFTs() external view returns (Hero[] memory) {
+        uint256[] storage userTokenIds = nftHolders[msg.sender];
+        Hero[] memory userHeroes;
+        uint256 length = userTokenIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            userHeroes[i] = nftHero[userTokenIds[i]];
+        }
+        return userHeroes;
+    }
+
+    function totalSupply() external view returns (uint256) {
+        return _tokenIds.current() - 1;
+    }
+
     function setOwner(address _address) external onlyOwner {
         owner = _address;
     }
@@ -329,10 +368,5 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     function setMintCost(uint256 cost) external onlyOwner {
         mintCost = cost;
-    }
-
-    function createSubscription() private {
-        subscriptionId = coordinator.createSubscription();
-        coordinator.addConsumer(subscriptionId, address(this));
     }
 }

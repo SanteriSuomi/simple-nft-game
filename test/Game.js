@@ -1,14 +1,18 @@
 const { ethers } = require("hardhat");
-const { expect } = require("chai");
+const { expect, assert } = require("chai");
 const { randomUint256, initializeGameContract } = require("../utils/Utilities");
 
 describe("Game contract", function () {
 	let gameContract;
 	let owner;
-	let defaultHeroes; // Default hero attributes array
+	let defaultHeroes;
 
 	before(async function () {
-		gameContract = await initializeGameContract(false);
+		gameContract = await initializeGameContract(
+			false,
+			hre.network.name,
+			"0.01"
+		);
 		[owner] = await ethers.getSigners(); // First account
 		defaultHeroes = await gameContract.getDefaultHeroes();
 	});
@@ -70,6 +74,29 @@ describe("Game contract", function () {
 			expect(nftHero.hp.toNumber()).to.equal(
 				defaultHeroes[nftIndex].hp.toNumber()
 			);
+		});
+
+		it("Total supply is correct", async function () {
+			const totalSupply = await gameContract.totalSupply();
+			expect(totalSupply.toNumber()).to.equal(2);
+		});
+
+		it("Metadata of minted NFT is correct", async function () {
+			const metadataString = await gameContract.tokenURI(1);
+			try {
+				const base64ToString = Buffer.from(
+					metadataString.substring(
+						// Remove the "data:application/json;base64," that is for browser only
+						metadataString.indexOf(",") + 1,
+						metadataString.length
+					),
+					"base64"
+				).toString();
+				JSON.parse(base64ToString);
+				assert.ok(true);
+			} catch (error) {
+				assert.fail("Metadata is not correct JSON");
+			}
 		});
 	});
 
