@@ -20,7 +20,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     event Mint(
         address indexed owner,
         uint256 indexed tokenId,
-        uint256 indexed heroIndex
+        uint256 defaultIndex
+    );
+
+    event Attack(
+        address indexed attacker,
+        uint256 indexed tokenId,
+        uint256 newHeroHp,
+        uint256 newBossHp
     );
 
     Counters.Counter private _tokenIds;
@@ -227,7 +234,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 tokenId,
         uint256 heroIndex
     ) private {
-        console.log("Fulfill Mint");
         Hero memory hero = defaultHeroes[heroIndex];
         nftHero[tokenId] = Hero({
             birthDate: block.timestamp,
@@ -247,20 +253,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     function attackBoss() public {
         uint256[] storage tokenIds = nftHolders[msg.sender];
-        console.log(
-            "Boss %s has %s HP and %s AD",
-            currentBoss.name,
-            currentBoss.hp,
-            currentBoss.damage
-        );
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            Hero storage hero = nftHero[tokenIds[i]];
-            console.log(
-                "Hero %s attacking, has %s HP and %s AD",
-                hero.name,
-                hero.hp,
-                hero.damage
-            );
+            uint256 tokenId = tokenIds[i];
+            Hero storage hero = nftHero[tokenId];
 
             // TODO destroy hero / boss when dead
             if (currentBoss.hp < hero.damage) {
@@ -276,6 +271,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             } else {
                 hero.hp -= currentBoss.damage;
             }
+            emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
         }
     }
 
@@ -326,10 +322,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         );
     }
 
-    function getDefaultHeroes() external view returns (Hero[] memory) {
-        return defaultHeroes;
-    }
-
     function getSubscriptionDetails()
         external
         view
@@ -351,6 +343,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             userHeroes[i] = nftHero[userTokenIds[i]];
         }
         return userHeroes;
+    }
+
+    function getDefaultHeroes() external view returns (Hero[] memory) {
+        return defaultHeroes;
     }
 
     function totalSupply() external view returns (uint256) {

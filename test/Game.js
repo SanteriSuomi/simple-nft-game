@@ -24,7 +24,7 @@ describe("Game contract", function () {
 		});
 
 		it("First default attribute should have correct HP", async function () {
-			expect(defaultHeroes[0].hp).to.equal(100);
+			expect(defaultHeroes[0].hp.toNumber()).to.equal(100);
 		});
 	});
 
@@ -53,7 +53,7 @@ describe("Game contract", function () {
 			expect(mintEventArgs.owner).to.equal(owner.address);
 			expect(mintEventArgs.tokenId.toNumber()).to.equal(0);
 
-			expect(mintEventArgs.heroIndex.toNumber())
+			expect(mintEventArgs.defaultIndex.toNumber())
 				.to.be.greaterThanOrEqual(0)
 				.and.be.lessThanOrEqual(defaultHeroes.length);
 
