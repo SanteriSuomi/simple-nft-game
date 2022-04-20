@@ -21,7 +21,7 @@ async function initializeGameContract(
 	const gameContract = await gameFactory.deploy(args);
 	await gameContract.deployed();
 
-	let tx = await gameContract.setHeroes(
+	await gameContract.setHeroes(
 		["Warrior", "Thief", "Druid"], // Hero names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmeYsWSHN8HFXYLbJx77jDWbn9mWDqjvFNUPEEjoz7vWFh/Warrior.gif",
@@ -33,7 +33,7 @@ async function initializeGameContract(
 		[20, 50, 10], // Crit chances
 		[2, 2, 6] // Heal
 	);
-	tx = await gameContract.setBosses(
+	await gameContract.setBosses(
 		["Treant", "Skeleton Lord"], // Boss names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
@@ -51,7 +51,7 @@ async function initializeGameContract(
 		networkName == "testnet"
 			? "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc" // Testnet
 			: "0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805"; // Mainnet (local fork), 1000 gwei
-	tx = await gameContract.setVRF(linkTokenAddress, keyHash);
+	await gameContract.setVRF(linkTokenAddress, keyHash);
 	await gameContract.setInitialized();
 
 	if (printAddress) {
