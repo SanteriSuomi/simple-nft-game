@@ -21,6 +21,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         MINT,
         ATTACK
     }
+    enum AttackType {
+        HERO,
+        BOSS
+    }
 
     event Mint(
         address indexed owner,
@@ -28,7 +32,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 defaultIndex
     );
 
-    event Attack(
+    event HeroAttack(
+        address indexed attacker,
+        uint256 indexed tokenId,
+        uint256 newHeroHp,
+        uint256 newBossHp
+    );
+
+    event BossAttack(
         address indexed attacker,
         uint256 indexed tokenId,
         uint256 newHeroHp,
@@ -199,7 +210,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         _tokenIds.increment();
     }
 
-    function fundSubscription() external onlyOwner {
+    function fundSubscription() external {
         linkToken.transferAndCall(
             coordinatorAddress,
             linkToken.balanceOf(address(this)),
@@ -253,7 +264,11 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     function attackBoss() public {
         uint256[] storage senderTokenIds = nftHolders[msg.sender];
         for (uint256 i = 0; i < senderTokenIds.length; i++) {
-            requestAttack(senderTokenIds[i]);
+            uint256 tokenId = senderTokenIds[i];
+            Hero storage hero = nftHero[tokenId];
+            if (hero.hp > 0) {
+                requestAttack(tokenId);
+            }
         }
     }
 
@@ -370,20 +385,24 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 randomInt = randomWord % 2;
         if (randomInt == 0) {
             if (currentBoss.hp < hero.damage) {
-                // TODO Remove current boss and get a new one through VRF, emit event
                 currentBoss.hp = 0;
+                uint256 randomBossIndex = randomWord % bosses.length;
+                Boss memory newBoss = bosses[randomBossIndex];
+                currentBoss = newBoss;
+                // TODO use VRF for getting a new boss instead of reusing the random attack word
             } else {
                 currentBoss.hp -= hero.damage;
             }
+            emit HeroAttack(msg.sender, tokenId, hero.hp, currentBoss.hp);
         } else {
             if (hero.hp < currentBoss.damage) {
-                // TODO Destroy this hero and remove it from the player, emit event
+                // TODO Do something when hero is killed?
                 hero.hp = 0;
             } else {
                 hero.hp -= currentBoss.damage;
             }
+            emit BossAttack(msg.sender, tokenId, hero.hp, currentBoss.hp);
         }
-        emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
     }
 
     function createSubscription() private {
