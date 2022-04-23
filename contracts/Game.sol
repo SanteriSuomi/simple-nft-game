@@ -17,6 +17,11 @@ import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
+    enum RequestType {
+        MINT,
+        ATTACK
+    }
+
     event Mint(
         address indexed owner,
         uint256 indexed tokenId,
@@ -31,7 +36,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     );
 
     struct Request {
-        // Store information about a oracle request
+        // Store information about a oracle request, used when fulfilling request
+        RequestType reqType;
         address requester;
         uint256 tokenId;
     }
@@ -76,7 +82,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     Boss public currentBoss;
 
     address public owner;
-    uint256 public maxTokenAmount = 3;
+
+    uint256 public maxTokenAmount = 1;
     uint256 public mintCost = 0.00 ether;
 
     bool private initialized;
@@ -180,16 +187,15 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function mintHero() external payable {
-        uint256[] storage tokenIds = nftHolders[msg.sender];
+        uint256[] storage senderTokenIds = nftHolders[msg.sender];
         require(
-            tokenIds.length < maxTokenAmount,
+            senderTokenIds.length < maxTokenAmount,
             "This address has reached maximum NFT amount"
         );
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct");
         }
-        uint256 tokenId = _tokenIds.current();
-        requestMint(tokenId);
+        requestMint(_tokenIds.current());
         _tokenIds.increment();
     }
 
@@ -245,37 +251,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function attackBoss() public {
-        uint256[] storage tokenIds = nftHolders[msg.sender];
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
-            Hero storage hero = nftHero[tokenId];
-
-            // TODO destroy hero / boss when dead
-            if (currentBoss.hp < hero.damage) {
-                // TODO Remove current boss and get a new one through VRF, emit event
-                currentBoss.hp = 0;
-            } else {
-                currentBoss.hp -= hero.damage;
-            }
-
-            if (hero.hp < currentBoss.damage) {
-                // TODO Destroy this hero and remove it from the player, emit event
-                hero.hp = 0;
-            } else {
-                hero.hp -= currentBoss.damage;
-            }
-            emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
+        uint256[] storage senderTokenIds = nftHolders[msg.sender];
+        for (uint256 i = 0; i < senderTokenIds.length; i++) {
+            requestAttack(senderTokenIds[i]);
         }
-    }
-
-    /**
-     *   THIS FUNCTION IS FOR TESTING PURPOSES ONLY
-     */
-    function testFulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) public {
-        fulfillRandomWords(requestId, randomWords);
     }
 
     function tokenURI(uint256 tokenId)
@@ -284,7 +263,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         override
         returns (string memory)
     {
-        Hero memory hero = nftHero[tokenId];
+        Hero storage hero = nftHero[tokenId];
         string memory json = Base64.encode(
             abi.encodePacked(
                 '{"name": "',
@@ -317,34 +296,59 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
+    /**
+     *   THIS FUNCTION IS FOR TESTING PURPOSES ONLY
+     */
+    function testFulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) public {
+        fulfillRandomWords(requestId, randomWords);
+    }
+
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
         internal
         override
     {
         Request memory request = requests[requestId];
         delete requests[requestId];
-        uint256 randomHeroIndex = randomWords[0] % defaultHeroes.length;
-        fullfillMint(request.requester, request.tokenId, randomHeroIndex);
+        if (request.reqType == RequestType.MINT) {
+            fulfillMint(request.requester, request.tokenId, randomWords[0]);
+        } else if (request.reqType == RequestType.ATTACK) {
+            fulfillAttack(request.tokenId, randomWords[0]);
+        }
     }
 
     function requestMint(uint256 tokenId) private {
-        uint256 requestId = coordinator.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            3,
-            1000000,
-            1
-        );
+        uint256 requestId = requestRandomWords();
         testRequestId = requestId; // FOR TESTING PURPOSES
-        requests[requestId] = Request(msg.sender, tokenId);
+        requests[requestId] = Request(RequestType.MINT, msg.sender, tokenId);
     }
 
-    function fullfillMint(
+    function requestAttack(uint256 tokenId) private {
+        uint256 requestId = requestRandomWords();
+        testRequestId = requestId; // FOR TESTING PURPOSES
+        requests[requestId] = Request(RequestType.ATTACK, msg.sender, tokenId);
+    }
+
+    function requestRandomWords() private returns (uint256) {
+        return
+            coordinator.requestRandomWords(
+                keyHash,
+                subscriptionId,
+                3,
+                1000000,
+                1
+            );
+    }
+
+    function fulfillMint(
         address requester,
         uint256 tokenId,
-        uint256 heroIndex
+        uint256 randomWord
     ) private {
-        Hero memory hero = defaultHeroes[heroIndex];
+        uint256 randomHeroIndex = randomWord % defaultHeroes.length;
+        Hero storage hero = defaultHeroes[randomHeroIndex];
         nftHero[tokenId] = Hero({
             birthDate: block.timestamp,
             index: hero.index,
@@ -358,7 +362,28 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         });
         nftHolders[requester].push(tokenId);
         _safeMint(requester, tokenId);
-        emit Mint(requester, tokenId, heroIndex);
+        emit Mint(requester, tokenId, randomHeroIndex);
+    }
+
+    function fulfillAttack(uint256 tokenId, uint256 randomWord) private {
+        Hero storage hero = nftHero[tokenId];
+        uint256 randomInt = randomWord % 2;
+        if (randomInt == 0) {
+            if (currentBoss.hp < hero.damage) {
+                // TODO Remove current boss and get a new one through VRF, emit event
+                currentBoss.hp = 0;
+            } else {
+                currentBoss.hp -= hero.damage;
+            }
+        } else {
+            if (hero.hp < currentBoss.damage) {
+                // TODO Destroy this hero and remove it from the player, emit event
+                hero.hp = 0;
+            } else {
+                hero.hp -= currentBoss.damage;
+            }
+        }
+        emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
     }
 
     function createSubscription() private {

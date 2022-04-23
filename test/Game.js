@@ -66,6 +66,8 @@ describe("Game contract", function () {
 		});
 
 		it("Should be able to mint again", async function () {
+			const tx = await gameContract.setMaxTokenAmount(2);
+			await tx.wait();
 			await mintHero();
 
 			const nftHero = await gameContract.nftHero(1);
