@@ -30,18 +30,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 newBossHp
     );
 
-    Counters.Counter private _tokenIds;
-
-    VRFCoordinatorV2Interface public coordinator;
-    LinkTokenInterface public linkToken;
-    address private coordinatorAddress;
-    address private linkTokenAddress;
-    bytes32 private keyHash;
-    uint64 private subscriptionId;
-
-    mapping(uint256 => Request) private requests;
-
     struct Request {
+        // Store information about a oracle request
         address requester;
         uint256 tokenId;
     }
@@ -66,10 +56,21 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 damage;
     }
 
-    Hero[] public defaultHeroes;
+    Counters.Counter private _tokenIds;
+
+    VRFCoordinatorV2Interface public coordinator;
+    LinkTokenInterface public linkToken;
+    address private coordinatorAddress;
+    address private linkTokenAddress;
+    bytes32 private keyHash;
+    uint64 private subscriptionId;
+
+    mapping(uint256 => Request) private requests; // Map request ID to a data structure with information about said request
 
     mapping(address => uint256[]) public nftHolders; // Map each address to a list of NFTs they hold
     mapping(uint256 => Hero) public nftHero; // Map NFT token ID to its' hero data structure
+
+    Hero[] public defaultHeroes;
 
     Boss[] public bosses;
     Boss public currentBoss;
@@ -91,6 +92,16 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     {
         owner = msg.sender;
         coordinatorAddress = _coordinatorAddress;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Caller must be owner");
+        _;
+    }
+
+    modifier checkInitialized() {
+        require(!initialized, "Contract has already been initialized");
+        _;
     }
 
     function setHeroes(
@@ -164,23 +175,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         createSubscription();
     }
 
-    function createSubscription() private {
-        subscriptionId = coordinator.createSubscription();
-        coordinator.addConsumer(subscriptionId, address(this));
-    }
-
     function setInitialized() external onlyOwner checkInitialized {
         initialized = true;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Caller must be owner");
-        _;
-    }
-
-    modifier checkInitialized() {
-        require(!initialized, "Contract has already been initialized");
-        _;
     }
 
     function mintHero() external payable {
@@ -195,18 +191,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 tokenId = _tokenIds.current();
         requestMint(tokenId);
         _tokenIds.increment();
-    }
-
-    function requestMint(uint256 tokenId) private {
-        uint256 requestId = coordinator.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            3,
-            1000000,
-            1
-        );
-        testRequestId = requestId; // FOR TESTING PURPOSES
-        requests[requestId] = Request(msg.sender, tokenId);
     }
 
     /**
@@ -227,6 +211,18 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         delete requests[requestId];
         uint256 randomHeroIndex = randomWords[0] % defaultHeroes.length;
         fullfillMint(request.requester, request.tokenId, randomHeroIndex);
+    }
+
+    function requestMint(uint256 tokenId) private {
+        uint256 requestId = coordinator.requestRandomWords(
+            keyHash,
+            subscriptionId,
+            3,
+            1000000,
+            1
+        );
+        testRequestId = requestId; // FOR TESTING PURPOSES
+        requests[requestId] = Request(msg.sender, tokenId);
     }
 
     function fullfillMint(
@@ -251,117 +247,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         emit Mint(requester, tokenId, heroIndex);
     }
 
-    function attackBoss() public {
-        uint256[] storage tokenIds = nftHolders[msg.sender];
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
-            Hero storage hero = nftHero[tokenId];
-
-            // TODO destroy hero / boss when dead
-            if (currentBoss.hp < hero.damage) {
-                // TODO Remove current boss and get a new one through VRF, emit event
-                currentBoss.hp = 0;
-            } else {
-                currentBoss.hp -= hero.damage;
-            }
-
-            if (hero.hp < currentBoss.damage) {
-                // TODO Destroy this hero and remove it from the player, emit event
-                hero.hp = 0;
-            } else {
-                hero.hp -= currentBoss.damage;
-            }
-            emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
-        }
-    }
-
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override
-        returns (string memory)
-    {
-        Hero memory hero = nftHero[tokenId];
-        string memory json = Base64.encode(
-            abi.encodePacked(
-                '{"name": "',
-                hero.name,
-                " -- NFT #: ",
-                Strings.toString(tokenId),
-                '", "description": "A Hero NFT that lets you play Monster Slayer!", "image": "',
-                hero.imageUri,
-                '", "attributes": [ { "trait_type": "Birth Date", "value": ',
-                Strings.toString(hero.birthDate),
-                '}, { "display_type": "date", "trait_type": "Health Points", "value": ',
-                Strings.toString(hero.hp),
-                ', "max_value":',
-                Strings.toString(hero.maxHp),
-                '}, { "trait_type": "Attack Damage", "value": ',
-                Strings.toString(hero.damage),
-                ', "max_value":',
-                Strings.toString(50),
-                '}, { "trait_type": "Critical Damage Chance", "value": ',
-                Strings.toString(hero.crit),
-                ', "max_value":',
-                Strings.toString(50),
-                '}, { "trait_type": "Healing Power", "value": ',
-                Strings.toString(hero.heal),
-                ', "max_value":',
-                Strings.toString(50),
-                "} ]}"
-            )
-        );
-        return string(abi.encodePacked("data:application/json;base64,", json));
-    }
-
-    function fundSubscription() external onlyOwner {
-        linkToken.transferAndCall(
-            coordinatorAddress,
-            linkToken.balanceOf(address(this)),
-            abi.encode(subscriptionId)
-        );
-    }
-
-    function getSubscriptionDetails()
-        external
-        view
-        returns (
-            uint96,
-            uint64,
-            address,
-            address[] memory
-        )
-    {
-        return coordinator.getSubscription(subscriptionId);
-    }
-
-    function getUserHeroes() external view returns (Hero[] memory) {
-        uint256[] storage userTokenIds = nftHolders[msg.sender];
-        Hero[] memory userHeroes;
-        uint256 length = userTokenIds.length;
-        for (uint256 i = 0; i < length; i++) {
-            userHeroes[i] = nftHero[userTokenIds[i]];
-        }
-        return userHeroes;
-    }
-
-    function getDefaultHeroes() external view returns (Hero[] memory) {
-        return defaultHeroes;
-    }
-
-    function totalSupply() external view returns (uint256) {
-        return _tokenIds.current() + 1;
-    }
-
-    function setOwner(address _address) external onlyOwner {
-        owner = _address;
-    }
-
-    function setMaxTokenAmount(uint256 amount) external onlyOwner {
-        maxTokenAmount = amount;
-    }
-
-    function setMintCost(uint256 cost) external onlyOwner {
-        mintCost = cost;
+    function createSubscription() private {
+        subscriptionId = coordinator.createSubscription();
+        coordinator.addConsumer(subscriptionId, address(this));
     }
 }
