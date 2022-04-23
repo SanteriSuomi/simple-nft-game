@@ -39,8 +39,8 @@ async function initializeGameContract(
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Slime.gif",
 		],
-		[1000, 600], // Boss HPs
-		[20, 28] // Boss damages
+		[500, 350], // Boss HPs
+		[20, 15] // Boss damages
 	);
 
 	const linkTokenAddress =

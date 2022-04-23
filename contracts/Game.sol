@@ -35,6 +35,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     event HeroAttack(
         address indexed attacker,
         uint256 indexed tokenId,
+        uint256 indexed bossIndex,
         uint256 newHeroHp,
         uint256 newBossHp
     );
@@ -42,6 +43,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     event BossAttack(
         address indexed attacker,
         uint256 indexed tokenId,
+        uint256 indexed bossIndex,
         uint256 newHeroHp,
         uint256 newBossHp
     );
@@ -54,7 +56,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     struct Hero {
-        uint256 index; // Default heroes index for this NFT
+        uint256 index; // Default heroes index
         uint256 birthDate;
         string name;
         string imageUri;
@@ -66,6 +68,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     struct Boss {
+        uint256 index; // Default bosses index
         string name;
         string imageUri;
         uint256 hp;
@@ -89,7 +92,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     Hero[] public defaultHeroes;
 
-    Boss[] public bosses;
+    Boss[] public defaultBosses;
     Boss public currentBoss;
 
     address public owner;
@@ -168,8 +171,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             "One of the given boss default arrays is odd length"
         );
         for (uint256 i = 0; i < bossNames.length; i++) {
-            bosses.push(
+            defaultBosses.push(
                 Boss({
+                    index: i,
                     name: bossNames[i],
                     imageUri: bossImageUris[i],
                     hp: bossHps[i],
@@ -178,7 +182,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 })
             );
         }
-        currentBoss = bosses[0];
+        Boss memory newBoss = defaultBosses[0];
+        currentBoss = newBoss;
     }
 
     function setVRF(address _linkTokenAddress, bytes32 _keyHash)
@@ -243,6 +248,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     function getDefaultHeroes() external view returns (Hero[] memory) {
         return defaultHeroes;
+    }
+
+    function getDefaultBosses() external view returns (Boss[] memory) {
+        return defaultBosses;
     }
 
     function totalSupply() external view returns (uint256) {
@@ -317,7 +326,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     function testFulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
-    ) public {
+    ) public onlyOwner {
         fulfillRandomWords(requestId, randomWords);
     }
 
@@ -330,7 +339,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         if (request.reqType == RequestType.MINT) {
             fulfillMint(request.requester, request.tokenId, randomWords[0]);
         } else if (request.reqType == RequestType.ATTACK) {
-            fulfillAttack(request.tokenId, randomWords[0]);
+            fulfillAttack(request.requester, request.tokenId, randomWords[0]);
         }
     }
 
@@ -380,28 +389,50 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         emit Mint(requester, tokenId, randomHeroIndex);
     }
 
-    function fulfillAttack(uint256 tokenId, uint256 randomWord) private {
+    function fulfillAttack(
+        address requester,
+        uint256 tokenId,
+        uint256 randomWord
+    ) private {
         Hero storage hero = nftHero[tokenId];
         uint256 randomInt = randomWord % 2;
         if (randomInt == 0) {
+            console.log("Hero Attack");
+            bool dead;
             if (currentBoss.hp < hero.damage) {
                 currentBoss.hp = 0;
-                uint256 randomBossIndex = randomWord % bosses.length;
-                Boss memory newBoss = bosses[randomBossIndex];
-                currentBoss = newBoss;
-                // TODO use VRF for getting a new boss instead of reusing the random attack word
+                dead = true;
             } else {
                 currentBoss.hp -= hero.damage;
             }
-            emit HeroAttack(msg.sender, tokenId, hero.hp, currentBoss.hp);
+            emit HeroAttack(
+                requester,
+                tokenId,
+                currentBoss.index,
+                hero.hp,
+                currentBoss.hp
+            );
+            if (dead) {
+                // TODO use VRF for getting a new boss instead of reusing the random attack word
+                uint256 randomBossIndex = randomWord % defaultBosses.length;
+                Boss memory newBoss = defaultBosses[randomBossIndex];
+                currentBoss = newBoss;
+            }
         } else {
+            console.log("Boss Attack");
             if (hero.hp < currentBoss.damage) {
                 // TODO Do something when hero is killed?
                 hero.hp = 0;
             } else {
                 hero.hp -= currentBoss.damage;
             }
-            emit BossAttack(msg.sender, tokenId, hero.hp, currentBoss.hp);
+            emit BossAttack(
+                requester,
+                tokenId,
+                currentBoss.index,
+                hero.hp,
+                currentBoss.hp
+            );
         }
     }
 

@@ -6,6 +6,7 @@ describe("Game contract", function () {
 	let gameContract;
 	let owner;
 	let defaultHeroes;
+	let defaultBosses;
 
 	before(async function () {
 		gameContract = await initializeGameContract(
@@ -15,6 +16,7 @@ describe("Game contract", function () {
 		);
 		[owner] = await ethers.getSigners(); // First account
 		defaultHeroes = await gameContract.getDefaultHeroes();
+		defaultBosses = await gameContract.getDefaultBosses();
 	});
 
 	describe("Deployment", function () {
@@ -104,8 +106,51 @@ describe("Game contract", function () {
 
 	describe("Attacking", function () {
 		it("Should be able to attack", async function () {
-			const attack = await gameContract.attackBoss();
-			await attack.wait();
+			const tx = await gameContract.attackBoss();
+			await tx.wait();
+
+			const testRequestId = await gameContract.testRequestId();
+
+			const testFullfillRequest =
+				await gameContract.testFulfillRandomWords(testRequestId, [
+					randomUint256(),
+				]);
+			await testFullfillRequest.wait();
+
+			const heroAttackEvents = await gameContract.queryFilter(
+				gameContract.filters.HeroAttack()
+			);
+			const bossAttackEvents = await gameContract.queryFilter(
+				gameContract.filters.BossAttack()
+			);
+
+			expect([heroAttackEvents, bossAttackEvents]).to.satisfy(
+				async (events) => {
+					console.log(events);
+					console.log(events[0].length);
+					if (events[0].length > 0) {
+						const heroAttackEventArgs = events[0][0].args;
+						const boss =
+							defaultBosses[heroAttackEventArgs.index.toNumber()];
+						return (
+							heroAttackEventArgs.newBossHp.toNumber() <
+							boss.maxHp.toNumber()
+						);
+					} else if (events[1].length > 0) {
+						const bossAttackEventArgs = events[1][0].args;
+						const hero = await gameContract.nftHero(
+							bossAttackEventArgs.tokenId.toNumber()
+						);
+						console.log(bossAttackEventArgs);
+						console.log(hero);
+						return (
+							bossAttackEventArgs.newHeroHp.toNumber() <
+							hero.maxHp.toNumber()
+						);
+					}
+					return false;
+				}
+			);
 		});
 	});
 });
