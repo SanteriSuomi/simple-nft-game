@@ -193,6 +193,81 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         _tokenIds.increment();
     }
 
+    function fundSubscription() external onlyOwner {
+        linkToken.transferAndCall(
+            coordinatorAddress,
+            linkToken.balanceOf(address(this)),
+            abi.encode(subscriptionId)
+        );
+    }
+
+    function getSubscriptionDetails()
+        external
+        view
+        returns (
+            uint96,
+            uint64,
+            address,
+            address[] memory
+        )
+    {
+        return coordinator.getSubscription(subscriptionId);
+    }
+
+    function getUserHeroes() external view returns (Hero[] memory) {
+        uint256[] storage userTokenIds = nftHolders[msg.sender];
+        Hero[] memory userHeroes;
+        uint256 length = userTokenIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            userHeroes[i] = nftHero[userTokenIds[i]];
+        }
+        return userHeroes;
+    }
+
+    function getDefaultHeroes() external view returns (Hero[] memory) {
+        return defaultHeroes;
+    }
+
+    function totalSupply() external view returns (uint256) {
+        return _tokenIds.current() + 1;
+    }
+
+    function setOwner(address _address) external onlyOwner {
+        owner = _address;
+    }
+
+    function setMaxTokenAmount(uint256 amount) external onlyOwner {
+        maxTokenAmount = amount;
+    }
+
+    function setMintCost(uint256 cost) external onlyOwner {
+        mintCost = cost;
+    }
+
+    function attackBoss() public {
+        uint256[] storage tokenIds = nftHolders[msg.sender];
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+            Hero storage hero = nftHero[tokenId];
+
+            // TODO destroy hero / boss when dead
+            if (currentBoss.hp < hero.damage) {
+                // TODO Remove current boss and get a new one through VRF, emit event
+                currentBoss.hp = 0;
+            } else {
+                currentBoss.hp -= hero.damage;
+            }
+
+            if (hero.hp < currentBoss.damage) {
+                // TODO Destroy this hero and remove it from the player, emit event
+                hero.hp = 0;
+            } else {
+                hero.hp -= currentBoss.damage;
+            }
+            emit Attack(msg.sender, tokenId, hero.hp, currentBoss.hp);
+        }
+    }
+
     /**
      *   THIS FUNCTION IS FOR TESTING PURPOSES ONLY
      */
@@ -201,6 +276,45 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256[] memory randomWords
     ) public {
         fulfillRandomWords(requestId, randomWords);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
+        Hero memory hero = nftHero[tokenId];
+        string memory json = Base64.encode(
+            abi.encodePacked(
+                '{"name": "',
+                hero.name,
+                " -- NFT #: ",
+                Strings.toString(tokenId),
+                '", "description": "A Hero NFT that lets you play Monster Slayer!", "image": "',
+                hero.imageUri,
+                '", "attributes": [ { "trait_type": "Birth Date", "value": ',
+                Strings.toString(hero.birthDate),
+                '}, { "display_type": "date", "trait_type": "Health Points", "value": ',
+                Strings.toString(hero.hp),
+                ', "max_value":',
+                Strings.toString(hero.maxHp),
+                '}, { "trait_type": "Attack Damage", "value": ',
+                Strings.toString(hero.damage),
+                ', "max_value":',
+                Strings.toString(50),
+                '}, { "trait_type": "Critical Damage Chance", "value": ',
+                Strings.toString(hero.crit),
+                ', "max_value":',
+                Strings.toString(50),
+                '}, { "trait_type": "Healing Power", "value": ',
+                Strings.toString(hero.heal),
+                ', "max_value":',
+                Strings.toString(50),
+                "} ]}"
+            )
+        );
+        return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
