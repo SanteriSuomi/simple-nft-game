@@ -381,7 +381,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         } else if (request.reqType == RequestType.ATTACK) {
             fulfillAttack(request.requester, request.tokenId, randomWords[0]);
         } else if (request.reqType == RequestType.NEW_BOSS) {
-            console.log("fulfillNewBoss");
             fulfillNewBoss(randomWords[0]);
         }
     }
@@ -399,7 +398,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function requestNewBoss() private {
-        console.log("requestNewBoss");
         requestingNewBoss = true;
         uint256 requestId = requestRandomWords();
         testRequestId = requestId; // FOR TESTING PURPOSES

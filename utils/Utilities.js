@@ -2,6 +2,19 @@ const { ethers } = require("hardhat");
 const fs = require("fs");
 const args = require("./arguments");
 
+const TESTNET_LINK_TOKEN = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709";
+const MAINNET_LINK_TOKEN = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
+
+const TESTNET_KEY_HASH =
+	"0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc";
+const MAINNET_KEY_HASH =
+	"0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805";
+
+const UNISWAP_ROUTER_ADRESS = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; // Same for all networks
+
+const TESTNET_WETH_TOKEN = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+const MAINNET_WETH_TOKEN = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
 /**
  * Generate random BigNumber in the range of 0 and 2^256, more generally known as Uint256 or unsigned integer 256
  * @returns Ethers BigNumber object with value in the range of 0 and 2^256
@@ -45,12 +58,12 @@ async function initializeGameContract(
 
 	const linkTokenAddress =
 		networkName == "testnet"
-			? "0x01BE23585060835E02B77ef475b0Cc51aA1e0709" // Testnet
-			: "0x514910771AF9Ca656af840dff83E8264EcF986CA"; // Mainnet (local fork)
+			? TESTNET_LINK_TOKEN // Testnet
+			: MAINNET_LINK_TOKEN; // Mainnet (local fork)
 	const keyHash =
 		networkName == "testnet"
-			? "0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc" // Testnet
-			: "0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805"; // Mainnet (local fork), 1000 gwei
+			? TESTNET_KEY_HASH // Testnet
+			: MAINNET_KEY_HASH; // Mainnet (local fork), 1000 gwei
 	await gameContract.setVRF(linkTokenAddress, keyHash);
 	await gameContract.setInitialized();
 
@@ -64,7 +77,7 @@ async function initializeGameContract(
 		const token = await purchaseToken(
 			networkName,
 			owner,
-			"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Uniswap router address is the same for all networks
+			UNISWAP_ROUTER_ADRESS, // Uniswap router address is the same for all networks
 			linkTokenAddress,
 			"/router_abi.txt",
 			"/link_token_abi.txt",
@@ -111,8 +124,8 @@ async function purchaseToken(
 			0,
 			[
 				networkName == "testnet"
-					? "0xc778417E063141139Fce010982780140Aa0cD5Ab" // Testnet
-					: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // Mainnet (local fork) - Wrapped ETH
+					? TESTNET_WETH_TOKEN // Testnet
+					: MAINNET_WETH_TOKEN, // Mainnet (local fork) - Wrapped ETH
 				tokenAddress,
 			],
 			owner.address,
