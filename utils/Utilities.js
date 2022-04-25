@@ -56,7 +56,7 @@ async function initializeGameContract(
 		[2, 2, 6] // Heal
 	);
 	await gameContract.setBosses(
-		["Treant", "Skeleton Lord"], // Boss names
+		["Treant", "Slime"], // Boss names
 		[
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
 			"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Slime.gif",
