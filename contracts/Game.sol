@@ -19,8 +19,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     enum RequestType {
         MINT,
-        ATTACK
+        ATTACK,
+        NEW_BOSS
     }
+
     enum AttackType {
         HERO,
         BOSS
@@ -48,6 +50,16 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 newBossHp
     );
 
+    event HeroDead(address indexed attacker, uint256 indexed tokenId);
+
+    event BossDead(
+        address indexed attacker,
+        uint256 indexed tokenId,
+        uint256 indexed bossIndex
+    );
+
+    event NewBoss(uint256 indexed bossIndex);
+
     struct Request {
         // Store information about a oracle request, used when fulfilling request
         RequestType reqType;
@@ -65,6 +77,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 damage;
         uint256 crit;
         uint256 heal;
+        bool attacking;
     }
 
     struct Boss {
@@ -88,7 +101,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     mapping(uint256 => Request) private requests; // Map request ID to a data structure with information about said request
 
     mapping(address => uint256[]) public nftHolders; // Map each address to a list of NFTs they hold
-    mapping(uint256 => Hero) public nftHero; // Map NFT token ID to its' hero data structure
+    mapping(uint256 => Hero) public nftHero; // Map token ID to its' hero data structure
 
     Hero[] public defaultHeroes;
 
@@ -102,8 +115,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     bool private initialized;
 
+    bool private requestingNewBoss;
+
     /**
-     * THIS IS JUST FOR TESTING
+     *  TODO FOR TESTING PURPOSES ONLY
      */
     uint256 public testRequestId;
 
@@ -152,7 +167,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                     maxHp: hps[i],
                     damage: damages[i],
                     crit: crits[i],
-                    heal: heals[i]
+                    heal: heals[i],
+                    attacking: false
                 })
             );
         }
@@ -177,7 +193,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                     name: bossNames[i],
                     imageUri: bossImageUris[i],
                     hp: bossHps[i],
-                    maxHp: bossDamage[i],
+                    maxHp: bossHps[i],
                     damage: bossDamage[i]
                 })
             );
@@ -270,12 +286,36 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         mintCost = cost;
     }
 
+    /**
+     *  TODO FOR TESTING PURPOSES ONLY
+     */
+    function setCurrentBoss(
+        string memory bossName,
+        string memory bossImageUri,
+        uint256 bossHp,
+        uint256 bossDamage
+    ) external onlyOwner {
+        currentBoss = Boss({
+            index: 10,
+            name: bossName,
+            imageUri: bossImageUri,
+            hp: bossHp,
+            maxHp: bossHp,
+            damage: bossDamage
+        });
+    }
+
     function attackBoss() public {
+        require(
+            !requestingNewBoss,
+            "Currently requesting a new boss, please wait"
+        );
         uint256[] storage senderTokenIds = nftHolders[msg.sender];
         for (uint256 i = 0; i < senderTokenIds.length; i++) {
             uint256 tokenId = senderTokenIds[i];
             Hero storage hero = nftHero[tokenId];
-            if (hero.hp > 0) {
+            if (hero.hp > 0 && !hero.attacking) {
+                hero.attacking = true;
                 requestAttack(tokenId);
             }
         }
@@ -321,7 +361,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     /**
-     *   THIS FUNCTION IS FOR TESTING PURPOSES ONLY
+     *  TODO FOR TESTING PURPOSES ONLY
      */
     function testFulfillRandomWords(
         uint256 requestId,
@@ -340,6 +380,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             fulfillMint(request.requester, request.tokenId, randomWords[0]);
         } else if (request.reqType == RequestType.ATTACK) {
             fulfillAttack(request.requester, request.tokenId, randomWords[0]);
+        } else if (request.reqType == RequestType.NEW_BOSS) {
+            console.log("fulfillNewBoss");
+            fulfillNewBoss(randomWords[0]);
         }
     }
 
@@ -353,6 +396,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 requestId = requestRandomWords();
         testRequestId = requestId; // FOR TESTING PURPOSES
         requests[requestId] = Request(RequestType.ATTACK, msg.sender, tokenId);
+    }
+
+    function requestNewBoss() private {
+        console.log("requestNewBoss");
+        requestingNewBoss = true;
+        uint256 requestId = requestRandomWords();
+        testRequestId = requestId; // FOR TESTING PURPOSES
+        requests[requestId] = Request(RequestType.NEW_BOSS, msg.sender, 0);
     }
 
     function requestRandomWords() private returns (uint256) {
@@ -382,7 +433,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             maxHp: hero.hp,
             damage: hero.damage,
             crit: hero.crit,
-            heal: hero.heal
+            heal: hero.heal,
+            attacking: false
         });
         nftHolders[requester].push(tokenId);
         _safeMint(requester, tokenId);
@@ -397,7 +449,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         Hero storage hero = nftHero[tokenId];
         uint256 randomInt = randomWord % 2;
         if (randomInt == 0) {
-            console.log("Hero Attack");
             bool dead;
             if (currentBoss.hp < hero.damage) {
                 currentBoss.hp = 0;
@@ -413,16 +464,13 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 currentBoss.hp
             );
             if (dead) {
-                // TODO use VRF for getting a new boss instead of reusing the random attack word
-                uint256 randomBossIndex = randomWord % defaultBosses.length;
-                Boss memory newBoss = defaultBosses[randomBossIndex];
-                currentBoss = newBoss;
+                emit BossDead(requester, tokenId, currentBoss.index);
+                requestNewBoss();
             }
         } else {
-            console.log("Boss Attack");
             if (hero.hp < currentBoss.damage) {
-                // TODO Do something when hero is killed?
                 hero.hp = 0;
+                emit HeroDead(requester, tokenId);
             } else {
                 hero.hp -= currentBoss.damage;
             }
@@ -434,6 +482,15 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 currentBoss.hp
             );
         }
+        hero.attacking = false;
+    }
+
+    function fulfillNewBoss(uint256 randomWord) private {
+        uint256 randomBossIndex = randomWord % defaultBosses.length;
+        Boss memory newBoss = defaultBosses[randomBossIndex];
+        currentBoss = newBoss;
+        requestingNewBoss = false;
+        emit NewBoss(currentBoss.index);
     }
 
     function createSubscription() private {

@@ -124,32 +124,64 @@ describe("Game contract", function () {
 				gameContract.filters.BossAttack()
 			);
 
-			expect([heroAttackEvents, bossAttackEvents]).to.satisfy(
-				async (events) => {
-					console.log(events);
-					console.log(events[0].length);
-					if (events[0].length > 0) {
-						const heroAttackEventArgs = events[0][0].args;
-						const boss =
-							defaultBosses[heroAttackEventArgs.index.toNumber()];
-						return (
-							heroAttackEventArgs.newBossHp.toNumber() <
-							boss.maxHp.toNumber()
-						);
-					} else if (events[1].length > 0) {
-						const bossAttackEventArgs = events[1][0].args;
-						const hero = await gameContract.nftHero(
-							bossAttackEventArgs.tokenId.toNumber()
-						);
-						console.log(bossAttackEventArgs);
-						console.log(hero);
-						return (
-							bossAttackEventArgs.newHeroHp.toNumber() <
-							hero.maxHp.toNumber()
-						);
-					}
-					return false;
+			async function testAfterAttackVariables(events) {
+				if (events[0].length > 0) {
+					// Is a hero attack
+					const heroAttackEventArgs = events[0][0].args;
+					const boss =
+						defaultBosses[heroAttackEventArgs.index.toNumber()];
+					return (
+						heroAttackEventArgs.newBossHp.toNumber() <
+						boss.maxHp.toNumber()
+					);
+				} else if (events[1].length > 0) {
+					// Is a boss attack
+					const bossAttackEventArgs = events[1][0].args;
+					const hero = await gameContract.nftHero(
+						bossAttackEventArgs.tokenId.toNumber()
+					);
+					return (
+						bossAttackEventArgs.newHeroHp.toNumber() <
+						hero.maxHp.toNumber()
+					);
 				}
+				return false;
+			}
+
+			expect([heroAttackEvents, bossAttackEvents]).to.satisfy(
+				testAfterAttackVariables
+			);
+		});
+
+		it("Should be able to get new boss", async function () {
+			let tx = await gameContract.setCurrentBoss(
+				"Treant",
+				"https://gateway.pinata.cloud/ipfs/QmXJR7SFE8MkcXPgXSUvmeavF5GUQZeDzyXpLoK8knLVNq/Treant.gif",
+				1,
+				20
+			);
+			await tx.wait();
+
+			tx = await gameContract.attackBoss();
+			await tx.wait();
+
+			const attackRequestId = await gameContract.testRequestId();
+			tx = await gameContract.testFulfillRandomWords(attackRequestId, [
+				0,
+			]);
+			await tx.wait();
+
+			const bossBefore = await gameContract.currentBoss();
+			const requestNewBossRequestId = await gameContract.testRequestId();
+			tx = await gameContract.testFulfillRandomWords(
+				requestNewBossRequestId,
+				[randomUint256()]
+			);
+			expect(tx.wait()).to.emit(gameContract, "NewBoss");
+
+			const bossAfter = await gameContract.currentBoss();
+			expect(bossBefore.hp.toNumber()).to.not.equal(
+				bossAfter.hp.toNumber()
 			);
 		});
 	});
