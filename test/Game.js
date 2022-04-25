@@ -172,6 +172,8 @@ describe("Game contract", function () {
 			await tx.wait();
 
 			const bossBefore = await gameContract.currentBoss();
+			tx = await gameContract.spawnNewBoss();
+			tx.wait();
 			const requestNewBossRequestId = await gameContract.testRequestId();
 			tx = await gameContract.testFulfillRandomWords(
 				requestNewBossRequestId,

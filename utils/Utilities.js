@@ -1,6 +1,5 @@
 const { ethers } = require("hardhat");
 const fs = require("fs");
-const args = require("./arguments");
 
 const TESTNET_LINK_TOKEN = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709";
 const MAINNET_LINK_TOKEN = "0x514910771AF9Ca656af840dff83E8264EcF986CA";
@@ -14,6 +13,11 @@ const UNISWAP_ROUTER_ADRESS = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; // S
 
 const TESTNET_WETH_TOKEN = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 const MAINNET_WETH_TOKEN = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
+const TESTNET_VRF_COORDINATOR_ADDRESS =
+	"0x6168499c0cFfCaCD319c818142124B7A15E857ab";
+const MAINNET_VRF_COORDINATOR_ADDRESS =
+	"0x271682DEB8C4E0901D1a1550aD2e64D568E69909";
 
 /**
  * Generate random BigNumber in the range of 0 and 2^256, more generally known as Uint256 or unsigned integer 256
@@ -31,7 +35,12 @@ async function initializeGameContract(
 	const [owner] = await ethers.getSigners(); // First account
 
 	const gameFactory = await ethers.getContractFactory("Game");
-	const gameContract = await gameFactory.deploy(args);
+
+	const vrfCoordinator =
+		networkName === "testnet"
+			? TESTNET_VRF_COORDINATOR_ADDRESS
+			: MAINNET_VRF_COORDINATOR_ADDRESS;
+	const gameContract = await gameFactory.deploy(vrfCoordinator);
 	await gameContract.deployed();
 
 	await gameContract.setHeroes(
@@ -57,11 +66,11 @@ async function initializeGameContract(
 	);
 
 	const linkTokenAddress =
-		networkName == "testnet"
+		networkName === "testnet"
 			? TESTNET_LINK_TOKEN // Testnet
 			: MAINNET_LINK_TOKEN; // Mainnet (local fork)
 	const keyHash =
-		networkName == "testnet"
+		networkName === "testnet"
 			? TESTNET_KEY_HASH // Testnet
 			: MAINNET_KEY_HASH; // Mainnet (local fork), 1000 gwei
 	await gameContract.setVRF(linkTokenAddress, keyHash);

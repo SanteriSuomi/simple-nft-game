@@ -77,7 +77,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 damage;
         uint256 crit;
         uint256 heal;
-        bool attacking;
     }
 
     struct Boss {
@@ -110,7 +109,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     address public owner;
 
-    uint256 public maxTokenAmount = 1;
+    uint256 public maxTokenAmount = 2;
     uint256 public mintCost = 0.00 ether;
 
     bool private initialized;
@@ -167,8 +166,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                     maxHp: hps[i],
                     damage: damages[i],
                     crit: crits[i],
-                    heal: heals[i],
-                    attacking: false
+                    heal: heals[i]
                 })
             );
         }
@@ -254,8 +252,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     function getUserHeroes() external view returns (Hero[] memory) {
         uint256[] storage userTokenIds = nftHolders[msg.sender];
-        Hero[] memory userHeroes;
         uint256 length = userTokenIds.length;
+        Hero[] memory userHeroes = new Hero[](length);
         for (uint256 i = 0; i < length; i++) {
             userHeroes[i] = nftHero[userTokenIds[i]];
         }
@@ -271,6 +269,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function totalSupply() external view returns (uint256) {
+        if (nftHero[0].maxHp == 0) {
+            return 0;
+        }
         return _tokenIds.current() + 1;
     }
 
@@ -306,19 +307,27 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function attackBoss() public {
+        require(!requestingNewBoss, "Currently requesting a new boss.");
         require(
-            !requestingNewBoss,
-            "Currently requesting a new boss, please wait"
+            currentBoss.hp > 0,
+            "Current boss is dead, request a new boss."
         );
         uint256[] storage senderTokenIds = nftHolders[msg.sender];
         for (uint256 i = 0; i < senderTokenIds.length; i++) {
             uint256 tokenId = senderTokenIds[i];
             Hero storage hero = nftHero[tokenId];
-            if (hero.hp > 0 && !hero.attacking) {
-                hero.attacking = true;
+            if (hero.hp > 0) {
                 requestAttack(tokenId);
             }
         }
+    }
+
+    function spawnNewBoss() public {
+        require(currentBoss.hp == 0, "Current boss is not dead yet.");
+        requestingNewBoss = true;
+        uint256 requestId = requestRandomWords();
+        testRequestId = requestId; // FOR TESTING PURPOSES
+        requests[requestId] = Request(RequestType.NEW_BOSS, msg.sender, 0);
     }
 
     function tokenURI(uint256 tokenId)
@@ -397,13 +406,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         requests[requestId] = Request(RequestType.ATTACK, msg.sender, tokenId);
     }
 
-    function requestNewBoss() private {
-        requestingNewBoss = true;
-        uint256 requestId = requestRandomWords();
-        testRequestId = requestId; // FOR TESTING PURPOSES
-        requests[requestId] = Request(RequestType.NEW_BOSS, msg.sender, 0);
-    }
-
     function requestRandomWords() private returns (uint256) {
         return
             coordinator.requestRandomWords(
@@ -431,8 +433,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             maxHp: hero.hp,
             damage: hero.damage,
             crit: hero.crit,
-            heal: hero.heal,
-            attacking: false
+            heal: hero.heal
         });
         nftHolders[requester].push(tokenId);
         _safeMint(requester, tokenId);
@@ -463,7 +464,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             );
             if (dead) {
                 emit BossDead(requester, tokenId, currentBoss.index);
-                requestNewBoss();
             }
         } else {
             if (hero.hp < currentBoss.damage) {
@@ -480,7 +480,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
                 currentBoss.hp
             );
         }
-        hero.attacking = false;
     }
 
     function fulfillNewBoss(uint256 randomWord) private {
