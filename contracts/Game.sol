@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.13;
+pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -60,6 +60,8 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     event NewBoss(uint256 indexed bossIndex);
 
+    event OwnerChanged(address indexed oldOwner, address indexed newOwner);
+
     // Store information about a oracle request, used when fulfilling request
     struct Request {
         RequestType reqType;
@@ -92,6 +94,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     uint256 public maxTokenAmount = 2;
     uint256 public mintCost = 0.00 ether;
 
+    uint16 public minConfirmations = 3;
+    uint32 public callbackGas = 1e6;
+    uint32 public numWords = 1;
+
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
 
@@ -123,6 +129,10 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         ERC721("Heroes", "Hero")
         VRFConsumerBaseV2(_coordinatorAddress)
     {
+        require(
+            _coordinatorAddress != address(0),
+            "Coordinator can't be zero address"
+        );
         owner = msg.sender;
         coordinatorAddress = _coordinatorAddress;
     }
@@ -198,13 +208,17 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         currentBoss = newBoss;
     }
 
-    function setVRF(address _linkTokenAddress, bytes32 _keyHash)
+    function setVRF(address linkTokenAddress_, bytes32 keyHash_)
         external
         onlyOwner
         checkInitialized
     {
-        linkTokenAddress = _linkTokenAddress;
-        keyHash = _keyHash;
+        require(
+            linkTokenAddress_ != address(0),
+            "Link token address can't be zero address"
+        );
+        linkTokenAddress = linkTokenAddress_;
+        keyHash = keyHash_;
         coordinator = VRFCoordinatorV2Interface(coordinatorAddress);
         linkToken = LinkTokenInterface(linkTokenAddress);
         createSubscription();
@@ -229,16 +243,24 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         _tokenIds.increment();
     }
 
+    function withdrawEther() external onlyOwner {
+        (bool success, ) = payable(msg.sender).call{
+            value: address(this).balance
+        }("");
+        require(success, "Transfer unsuccessful");
+    }
+
     function fundSubscription() external {
         require(
             linkToken.balanceOf(address(this)) > 0,
             "No link token balance"
         );
-        linkToken.transferAndCall(
+        bool success = linkToken.transferAndCall(
             coordinatorAddress,
             linkToken.balanceOf(address(this)),
             abi.encode(subscriptionId)
         );
+        require(success, "Could not fund subscription");
     }
 
     function getSubscriptionDetails()
@@ -276,8 +298,14 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         return _tokenIds.current();
     }
 
-    function setOwner(address _address) external onlyOwner {
-        owner = _address;
+    function setOwner(address newOwner) external onlyOwner {
+        require(
+            newOwner != address(0),
+            "Link token address can't be zero address"
+        );
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnerChanged(oldOwner, newOwner);
     }
 
     function setMaxTokenAmount(uint256 amount) external onlyOwner {
@@ -286,6 +314,16 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     function setMintCost(uint256 cost) external onlyOwner {
         mintCost = cost;
+    }
+
+    function setVRFSettings(
+        uint16 confirmations,
+        uint32 gas,
+        uint32 words
+    ) external onlyOwner {
+        minConfirmations = confirmations;
+        callbackGas = gas;
+        numWords = words;
     }
 
     /**
@@ -307,7 +345,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         });
     }
 
-    function attackBoss() public {
+    function attackBoss() external {
         require(!requestingNewBoss, "Currently spawning a new boss");
         require(
             currentBoss.hp > 0,
@@ -325,7 +363,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         }
     }
 
-    function spawnNewBoss() public {
+    function spawnNewBoss() external {
         require(currentBoss.hp == 0, "Current boss is not dead yet");
         requestingNewBoss = true;
         uint256 requestId = requestRandomWords();
@@ -378,7 +416,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     function testFulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
-    ) public onlyOwner {
+    ) external onlyOwner {
         fulfillRandomWords(requestId, randomWords);
     }
 
@@ -414,9 +452,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             coordinator.requestRandomWords(
                 keyHash,
                 subscriptionId,
-                3,
-                1000000,
-                1
+                minConfirmations,
+                callbackGas,
+                numWords
             );
     }
 
@@ -439,9 +477,9 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             heal: hero.heal
         });
         nftHolders[requester].push(tokenId);
-        _safeMint(requester, tokenId);
         isMinting[msg.sender] = false;
         emit Mint(requester, tokenId, randomHeroIndex);
+        _safeMint(requester, tokenId);
     }
 
     function fulfillAttack(
@@ -452,7 +490,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         Hero storage hero = nftHero[tokenId];
         uint256 randomInt = randomWord % 2;
         if (randomInt == 0) {
-            bool bossDead;
+            bool bossDead = false;
             if (currentBoss.hp <= hero.damage) {
                 currentBoss.hp = 0;
                 bossDead = true;
@@ -499,4 +537,6 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         subscriptionId = coordinator.createSubscription();
         coordinator.addConsumer(subscriptionId, address(this));
     }
+
+    receive() external payable {}
 }

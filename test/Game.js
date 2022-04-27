@@ -2,6 +2,9 @@ const { ethers } = require("hardhat");
 const { expect, assert } = require("chai");
 const { randomUint256, initializeGameContract } = require("../utils/Utilities");
 
+const chai = require("chai");
+chai.use(require("chai-bignumber")(ethers.BigNumber)); // Enable compare assertations for BigNumbers
+
 describe("Game contract", function () {
 	let gameContract;
 	let owner;
@@ -185,6 +188,23 @@ describe("Game contract", function () {
 			expect(bossBefore.hp.toNumber()).to.not.equal(
 				bossAfter.hp.toNumber()
 			);
+		});
+	});
+
+	describe("Misc", function () {
+		it("Should be able to withdraw contract ether", async function () {
+			await owner.sendTransaction({
+				to: gameContract.address,
+				value: ethers.utils.parseEther("0.1"),
+			});
+			const balanceBefore = await ethers.provider.getBalance(
+				owner.address
+			);
+			await gameContract.withdrawEther();
+			const balanceAfter = await ethers.provider.getBalance(
+				owner.address
+			);
+			expect(balanceAfter).to.be.gt(balanceBefore);
 		});
 	});
 });
