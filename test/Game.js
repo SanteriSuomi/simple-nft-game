@@ -82,7 +82,7 @@ describe("Game contract", function () {
 
 		it("Total supply is correct", async function () {
 			const totalSupply = await gameContract.totalSupply();
-			expect(totalSupply.toNumber()).to.equal(3);
+			expect(totalSupply.toNumber()).to.equal(2);
 		});
 
 		it("Metadata of minted NFT is correct", async function () {

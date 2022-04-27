@@ -12,7 +12,7 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
 import "./libraries/Base64.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
@@ -60,15 +60,15 @@ contract Game is ERC721, VRFConsumerBaseV2 {
 
     event NewBoss(uint256 indexed bossIndex);
 
+    // Store information about a oracle request, used when fulfilling request
     struct Request {
-        // Store information about a oracle request, used when fulfilling request
         RequestType reqType;
         address requester;
         uint256 tokenId;
     }
 
     struct Hero {
-        uint256 index; // Default heroes index
+        uint256 index;
         uint256 birthDate;
         string name;
         string imageUri;
@@ -80,7 +80,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     struct Boss {
-        uint256 index; // Default bosses index
+        uint256 index;
         string name;
         string imageUri;
         uint256 hp;
@@ -88,33 +88,31 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         uint256 damage;
     }
 
-    Counters.Counter private _tokenIds;
+    address public owner;
+    uint256 public maxTokenAmount = 2;
+    uint256 public mintCost = 0.00 ether;
 
     VRFCoordinatorV2Interface public coordinator;
     LinkTokenInterface public linkToken;
+
+    mapping(address => uint256[]) public nftHolders; // Map each address to a list of NFTs they hold
+    mapping(uint256 => Hero) public nftHero; // Map token ID to its' hero data structure
+    mapping(address => bool) public isMinting;
+
+    Hero[] public defaultHeroes;
+    Boss[] public defaultBosses;
+    Boss public currentBoss;
+
+    Counters.Counter private _tokenIds;
     address private coordinatorAddress;
     address private linkTokenAddress;
     bytes32 private keyHash;
     uint64 private subscriptionId;
 
-    mapping(uint256 => Request) private requests; // Map request ID to a data structure with information about said request
-
-    mapping(address => uint256[]) public nftHolders; // Map each address to a list of NFTs they hold
-    mapping(uint256 => Hero) public nftHero; // Map token ID to its' hero data structure
-
-    Hero[] public defaultHeroes;
-
-    Boss[] public defaultBosses;
-    Boss public currentBoss;
-
-    address public owner;
-
-    uint256 public maxTokenAmount = 2;
-    uint256 public mintCost = 0.00 ether;
-
     bool private initialized;
-
     bool private requestingNewBoss;
+
+    mapping(uint256 => Request) private requests; // Map request ID to a data structure with information about said request
 
     /**
      *  TODO FOR TESTING PURPOSES ONLY
@@ -222,14 +220,20 @@ contract Game is ERC721, VRFConsumerBaseV2 {
             senderTokenIds.length < maxTokenAmount,
             "This address has reached maximum token amount"
         );
+        require(!isMinting[msg.sender], "Can't mint multiple at a time");
         if (mintCost > 0) {
             require(msg.value == mintCost, "Payment is not correct amount");
         }
+        isMinting[msg.sender] = true;
         requestMint(_tokenIds.current());
         _tokenIds.increment();
     }
 
     function fundSubscription() external {
+        require(
+            linkToken.balanceOf(address(this)) > 0,
+            "No link token balance"
+        );
         linkToken.transferAndCall(
             coordinatorAddress,
             linkToken.balanceOf(address(this)),
@@ -304,7 +308,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     function attackBoss() public {
-        require(!requestingNewBoss, "Currently requesting a new boss");
+        require(!requestingNewBoss, "Currently spawning a new boss");
         require(
             currentBoss.hp > 0,
             "Current boss is dead, you must spawn a new boss"
@@ -436,6 +440,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         });
         nftHolders[requester].push(tokenId);
         _safeMint(requester, tokenId);
+        isMinting[msg.sender] = false;
         emit Mint(requester, tokenId, randomHeroIndex);
     }
 
@@ -467,6 +472,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         } else if (currentBoss.hp > 0) {
             if (hero.hp <= currentBoss.damage) {
                 hero.hp = 0;
+                _burn(tokenId);
                 emit HeroDead(requester, tokenId);
             } else {
                 hero.hp -= currentBoss.damage;
