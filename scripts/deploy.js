@@ -2,6 +2,9 @@ const { initializeGameContract } = require("../utils/Utilities");
 const fs = require("fs");
 const path = require("path");
 
+// Project root
+const rootPath = path.join(path.dirname(require.main.filename), "../");
+
 const main = async () => {
 	const contract = await initializeGameContract(
 		true,
@@ -9,15 +12,19 @@ const main = async () => {
 		"0.01"
 	);
 
-	// Project root
-	const rootPath = path.join(path.dirname(require.main.filename), "../");
-
 	function getFromPath(paths, fileName) {
 		return path.resolve(rootPath, ...paths, fileName);
 	}
 
 	function getToPath(fileName) {
-		return path.resolve(rootPath, "frontend", "public", fileName);
+		return path.resolve(
+			rootPath,
+			"frontend",
+			"src",
+			"utils",
+			"files",
+			fileName
+		);
 	}
 
 	function copyAbiToFrontend() {
@@ -30,8 +37,11 @@ const main = async () => {
 	}
 
 	function copyAddressToFrontend() {
-		const addressFileName = "Address";
-		fs.writeFileSync(getToPath(addressFileName), contract.address, {
+		const addressFileName = "Address.json";
+		const addressJson = JSON.stringify({
+			address: contract.address,
+		});
+		fs.writeFileSync(getToPath(addressFileName), addressJson, {
 			flag: "w+",
 		});
 		console.log("Updated contract address in frontend");
