@@ -1,10 +1,14 @@
 import "./App.css";
 import { useEffect, useState } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { ethers } from "ethers";
+import SelectCharacter from "./Components/SelectCharacter/SelectCharacter";
+import Header from "./Components/Header/Header";
+import WelcomeScreen from "./Components/WelcomeScreen/WelcomeScreen";
 
 export default function App() {
 	const [account, setAccount] = useState(null);
+	const [characterNFT, setCharacterNFT] = useState(null);
 
 	const { ethereum } = window;
 
@@ -65,41 +69,18 @@ export default function App() {
 		}
 	}, [account, ethereum]);
 
+	const renderContent = () => {
+		if (!account) {
+			return <WelcomeScreen></WelcomeScreen>;
+		} else if (account && !characterNFT) {
+			return <SelectCharacter setCharacterNFT={setCharacterNFT} />;
+		}
+	};
+
 	return (
-		<Stack direction="column" spacing={7.5}>
-			<Stack
-				direction="row"
-				justifyContent="space-between"
-				alignItems="center"
-			>
-				<Typography fontSize={35}>👾 Monster Slayer 👹</Typography>
-				<Button
-					sx={{
-						maxHeight: 45,
-						backgroundColor: "#6e2c90",
-					}}
-					variant="contained"
-					onClick={() => {
-						connectWallet();
-					}}
-				>
-					{account ? "Connected" : "Connect"}
-				</Button>
-			</Stack>
-			<Stack direction="column" alignItems="center" spacing={3}>
-				<Box
-					component="img"
-					sx={{
-						height: 250,
-						width: 375,
-					}}
-					alt="The house from the offer."
-					src="main.webp"
-				/>
-				<Typography fontSize={18.5}>
-					Connect your wallet to get started (top right)!
-				</Typography>
-			</Stack>
+		<Stack direction="column" height="90vh">
+			<Header connectWallet={connectWallet} account={account}></Header>
+			{renderContent()}
 		</Stack>
 	);
 }
