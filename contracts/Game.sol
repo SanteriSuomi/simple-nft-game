@@ -13,7 +13,6 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "./libraries/Base64.sol";
 
 // import "hardhat/console.sol";
-
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
