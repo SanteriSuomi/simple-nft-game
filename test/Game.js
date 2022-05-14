@@ -206,5 +206,11 @@ describe("Game contract", function () {
 			);
 			expect(balanceAfter).to.be.gt(balanceBefore);
 		});
+
+		it("Should be able to get user heroes", async function () {
+			const heroes = await gameContract.getUserHeroes(owner.address);
+			console.log(heroes);
+			expect(heroes.length).to.be.gt(0);
+		});
 	});
 });

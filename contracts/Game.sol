@@ -13,6 +13,8 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "./libraries/Base64.sol";
 
 // import "hardhat/console.sol";
+
+// import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
@@ -240,6 +242,32 @@ contract Game is ERC721, VRFConsumerBaseV2 {
         isMinting[msg.sender] = true;
         requestMint(_tokenIds.current());
         _tokenIds.increment();
+    }
+
+    /**
+     * ONLY USER FOR TESTING - BYPASSES CHAINLINK VRF WHICH ONLY WORKS IN PUBLIC TESTNET SUCH AS RINKEBY
+     */
+    function mintHeroTest() external {
+        uint256 randomHeroIndex = uint256(
+            keccak256(abi.encodePacked(block.difficulty, block.timestamp))
+        ) % defaultHeroes.length;
+        Hero storage hero = defaultHeroes[randomHeroIndex];
+        uint256 tokenId = _tokenIds.current();
+        nftHero[tokenId] = Hero({
+            birthDate: block.timestamp,
+            index: hero.index,
+            name: hero.name,
+            imageUri: hero.imageUri,
+            hp: hero.hp,
+            maxHp: hero.hp,
+            damage: hero.damage,
+            crit: hero.crit,
+            heal: hero.heal
+        });
+        nftHolders[msg.sender].push(tokenId);
+        _safeMint(msg.sender, tokenId);
+        _tokenIds.increment();
+        emit Mint(msg.sender, tokenId, randomHeroIndex);
     }
 
     function withdrawEther() external onlyOwner {
