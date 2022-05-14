@@ -4,6 +4,7 @@ import { React } from "react";
 import { ABI, CONTRACT_ADDRESS } from "../../utils/constants";
 
 export default function CharacterSelection() {
+	// TODO check user heroes when wallet connected & on character selection
 	const fetchUserHeroes = async (signer) => {
 		try {
 			console.log(signer);
