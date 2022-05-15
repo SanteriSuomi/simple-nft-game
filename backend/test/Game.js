@@ -209,7 +209,6 @@ describe("Game contract", function () {
 
 		it("Should be able to get user heroes", async function () {
 			const heroes = await gameContract.getUserHeroes(owner.address);
-			console.log(heroes);
 			expect(heroes.length).to.be.gt(0);
 		});
 	});

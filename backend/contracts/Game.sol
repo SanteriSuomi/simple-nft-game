@@ -14,7 +14,6 @@ import "./libraries/Base64.sol";
 
 // import "hardhat/console.sol";
 
-// import "hardhat/console.sol";
 contract Game is ERC721, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
 
@@ -245,7 +244,7 @@ contract Game is ERC721, VRFConsumerBaseV2 {
     }
 
     /**
-     * ONLY USER FOR TESTING - BYPASSES CHAINLINK VRF WHICH ONLY WORKS IN PUBLIC TESTNET SUCH AS RINKEBY
+     * ONLY USER FOR LOCAL TESTING - BYPASSES CHAINLINK VRF WHICH ONLY WORKS IN RINKEBY PUBLIC TESTNET
      */
     function mintHeroTest() external {
         uint256 randomHeroIndex = uint256(

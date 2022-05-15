@@ -5,14 +5,23 @@ import { ethers } from "ethers";
 import CharacterSelection from "./Components/CharacterSelection/CharacterSelection";
 import Header from "./Components/Header/Header";
 import WelcomeScreen from "./Components/WelcomeScreen/WelcomeScreen";
-import { CHAIN_ID, NETWORK_NAME } from "./utils/constants";
+import {
+	CONTRACT_ADDRESS,
+	ABI,
+	CHAIN_ID,
+	NETWORK_NAME,
+} from "./utils/constants";
 
 var sentAlert;
 
 export default function App() {
-	const [userData, setUserData] = useState(null);
+	const [data, setData] = useState(null);
 
 	const { ethereum } = window;
+
+	const getContract = (signer) => {
+		return new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+	};
 
 	const connectWallet = async () => {
 		try {
@@ -23,9 +32,10 @@ export default function App() {
 			const provider = new ethers.providers.Web3Provider(ethereum);
 			await provider.send("eth_requestAccounts", []);
 			const signer = provider.getSigner();
-			setUserData({
+			setData({
 				provider: provider,
-				accounts: signer,
+				signer: signer,
+				contract: getContract(signer),
 			});
 		} catch (error) {
 			console.log(error);
@@ -56,9 +66,10 @@ export default function App() {
 						ethereum
 					);
 					const signer = provider.getSigner();
-					setUserData({
+					setData({
 						provider: provider,
 						signer: signer,
+						contract: getContract(signer),
 					});
 				}
 			} catch (error) {
@@ -70,7 +81,7 @@ export default function App() {
 			if (!ethereum) {
 				return alert("No Metamask detected");
 			}
-			if (!userData) {
+			if (!data) {
 				if (!sentAlert) {
 					sentAlert = true;
 					setTimeout(async () => {
@@ -83,11 +94,11 @@ export default function App() {
 		};
 
 		checkNetworkAndWallet();
-	}, [userData, ethereum]);
+	}, [data, ethereum]);
 
 	const renderContent = () => {
-		if (userData) {
-			return <CharacterSelection></CharacterSelection>;
+		if (data) {
+			return <CharacterSelection data={data}></CharacterSelection>;
 		} else {
 			return <WelcomeScreen></WelcomeScreen>;
 		}
@@ -95,7 +106,7 @@ export default function App() {
 
 	return (
 		<Stack direction="column" height="90vh">
-			<Header connectWallet={connectWallet} account={userData}></Header>
+			<Header connectWallet={connectWallet} account={data}></Header>
 			{renderContent()}
 		</Stack>
 	);
